@@ -32,11 +32,11 @@ RUN uv pip install torch --extra-index-url https://download.pytorch.org/whl/cu12
 COPY requirements.txt /requirements.txt
 RUN uv pip install -r /requirements.txt
 
-# copy files
-COPY download_weights.py schemas.py handler.py /
+# copy files (download_weights.py is unused now - weights download to the
+# network volume on first cold start instead of being baked into the image)
+COPY schemas.py handler.py /
 
-# download the weights from hugging face
-RUN python /download_weights.py
+ENV HF_HUB_ENABLE_HF_TRANSFER=1
 
 # run the handler
 CMD python -u /handler.py

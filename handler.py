@@ -13,7 +13,25 @@ from schemas import INPUT_SCHEMA
 
 MODEL_ID = "Wan-AI/Wan2.1-T2V-1.3B-Diffusers"
 
+# Weights live on the endpoint's network volume, not baked into the image -
+# a ~38GB baked image was too slow/unreliable to pull on serverless cold
+# starts. First cold start on a fresh volume downloads once; every worker
+# after that reuses the same cached copy.
+MODEL_DIR = "/runpod-volume/wan-1.3b"
+
 torch.cuda.empty_cache()
+
+
+def _ensure_weights():
+    marker = os.path.join(MODEL_DIR, ".complete")
+    if os.path.exists(marker):
+        return
+    from huggingface_hub import snapshot_download
+
+    os.makedirs(MODEL_DIR, exist_ok=True)
+    snapshot_download(repo_id=MODEL_ID, local_dir=MODEL_DIR)
+    with open(marker, "w") as f:
+        f.write("ok")
 
 
 class ModelHandler:
@@ -22,16 +40,17 @@ class ModelHandler:
         self.load_models()
 
     def load_models(self):
-        # Load VAE from cache using identifier
+        _ensure_weights()
+        # Load VAE from the volume
         vae = AutoencoderKLWan.from_pretrained(
-            MODEL_ID,
+            MODEL_DIR,
             subfolder="vae",
             torch_dtype=torch.float32,
             local_files_only=True,
         )
-        # Load Wan text-to-video pipeline from cache using identifier
+        # Load Wan text-to-video pipeline from the volume
         pipe = WanPipeline.from_pretrained(
-            MODEL_ID,
+            MODEL_DIR,
             vae=vae,
             torch_dtype=torch.bfloat16,
             local_files_only=True,
