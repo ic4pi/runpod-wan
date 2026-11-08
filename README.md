@@ -72,9 +72,9 @@ Navigate to `http://localhost:5173` and start composing.
 - [ ] Task 8: End-to-end testing
 - [ ] Task 9: Documentation
 
-### Integration with Levels
+### Integration with Aged/Processed Cheese
 
-Beet exports stems (audio files) that are pre-aligned for import into **Levels Studio** — our mixing & mastering partner app. No manual timing adjustments needed.
+Beet exports stems (audio files) that are pre-aligned for import into **Aged/Processed Cheese** — our mixing & mastering app. No manual timing adjustments needed. Layer Beet synth tracks with Sprouts vocals, then mix & master in Aged/Processed Cheese.
 
 ### Future Roadmap
 
@@ -110,9 +110,9 @@ Beet is built as an open-source project. Contributions welcome — see CONTRIBUT
 
 **Beet** is the synthesis & composition layer of Produce:
 
-- 🍠 **Beet** — Synth & composition (you are here)
-- 🥕 **Levels** — Multi-track mixer & mastering
-- 🎓 **Coach** — AI-powered music theory & composition guidance
+- 🍠 **Beet** — Synth engines + drum patterns/loops (you are here)
+- 🌱 **Sprouts** — Vocal recording + sound effects
+- 🧀 **Aged/Processed Cheese** — Multi-track mixing + mastering
 
 All apps are browser-based, free, and offline-capable.
 
