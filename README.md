@@ -79,7 +79,7 @@ Beet exports stems (audio files) that are pre-aligned for import into **Aged/Pro
 ### Future Roadmap
 
 **v1.1+ Features:**
-- 🎰 **Diced** — Sampler/loops station (user sample upload + effects, coming post-MVP)
+- 🎰 **Diced** — Sampler/loops station (user sample upload, trim, stretch, pitch, loop manipulation)
 - **Bluetooth MIDI** support (lowest-latency controller mapping)
 - **AI sound generation** (describe sounds, Beet generates synth parameters)
 - **Preset sharing** (community sound library)
