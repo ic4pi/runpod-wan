@@ -609,17 +609,25 @@ git commit -m "feat: WAV export with silence padding for timeline alignment
 
 ---
 
-### Task 5: Keyboard Input Handling
+### Task 5: Keyboard & MIDI Controller Input
 
 **Files:**
-- Create: `app/src/hooks/useKeyboardInput.ts`
-- Create: `tests/integration/keyboard-input.test.ts`
+- Create: `app/src/hooks/useKeyboardInput.ts` — keyboard layer
+- Create: `app/src/hooks/useMidiController.ts` — MIDI controller layer
+- Create: `app/src/lib/midiMapping.ts` — controller mapping schema
+- Create: `tests/integration/keyboard-input.test.ts` — keyboard tests
+- Create: `tests/integration/midi-controller.test.ts` — MIDI tests
 
 **Interfaces:**
 - Consumes: `Sequencer` from Task 3
-- Produces: `useKeyboardInput(sequencer, synthEngine)` React hook
+- Produces: 
+  - `useKeyboardInput(sequencer)` React hook
+  - `useMidiController(sequencer)` React hook
+  - Unified input abstraction
 
-- [ ] **Step 1: Define keyboard-to-MIDI mapping in `app/src/hooks/useKeyboardInput.ts`**
+**Part A: Keyboard Input**
+
+- [ ] **Step 1: Keyboard-to-MIDI mapping**
 
 Standard computer keyboard layout:
 ```
@@ -630,61 +638,168 @@ Modifiers:
   Space = play/pause
 ```
 
-- [ ] **Step 2: Write test for keyboard-to-pitch mapping**
+- [ ] **Step 2: Keyboard event listeners**
+
+On `keydown`: trigger synth via `sequencer.triggerNote(pitch, velocity=100)`.
+On `keyup`: release via `sequencer.release(pitch)`.
+Debounce to prevent key repeat spam.
+
+- [ ] **Step 3: Test keyboard playback**
 
 ```typescript
-it('maps QWERTY keys to MIDI pitches', () => {
-  const { keyToPitch } = useKeyboardInput();
-  expect(keyToPitch('Z')).toBe(60); // C4
-  expect(keyToPitch('X')).toBe(62); // D4
-  expect(keyToPitch('Q')).toBe(72); // C5
-});
-
-it('responds to Shift+ArrowUp for octave up', () => {
-  const { octaveUp } = useKeyboardInput();
-  octaveUp();
-  expect(keyToPitch('Z')).toBe(72); // C5 (octave up)
-});
-```
-
-- [ ] **Step 3: Implement keyboard event listeners in hook**
-
-On `keydown`: trigger synth note via `sequencer.triggerNote(pitch, velocity=100)`.
-On `keyup`: release note via `sequencer.release(pitch)`.
-
-Add debounce/throttle to prevent key repeat spam.
-
-- [ ] **Step 4: Test live keyboard playback (integration)**
-
-```typescript
-it('plays note on keydown, releases on keyup', () => {
+it('maps QWERTY to MIDI pitches and triggers notes', () => {
   const { triggerKey, releaseKey } = useKeyboardInput();
   const spy = jest.spyOn(sequencer, 'triggerNote');
   triggerKey('Z');
-  expect(spy).toHaveBeenCalledWith(60, 100);
+  expect(spy).toHaveBeenCalledWith(60, 100); // C4
   releaseKey('Z');
-  // Verify release called
+});
+
+it('supports polyphony (multiple keys held)', () => {
+  triggerKey('Z'); // C4
+  triggerKey('X'); // D4
+  // Both notes should sound simultaneously
+  releaseKey('Z');
 });
 ```
 
-- [ ] **Step 5: Implement polyphony (multiple keys held)**
+**Part B: MIDI Controller Input**
 
-Track active keys in state; allow multiple notes to sound simultaneously.
+**Hardware mapping (Beet Synth Controller):**
 
-- [ ] **Step 6: Run all tests; verify PASS**
+```
+BUTTONS: play, stop, rec, BT(?), arp, sc/ch (scale/chord)
 
-Run: `npm test -- tests/integration/keyboard-input.test.ts`
+KNOBS (2 rows of 4):
+  Row 1: mode, oct, latch, gate
+  Row 2: swing, tempo, rate, transpose
 
-- [ ] **Step 7: Commit**
+WHEELS: pitch bend, mod wheel
+
+PADS (2 rows of 4): labeled 1-4, 5-8
+  - Base (no shift): trigger drum sounds / pads
+  - With shift (select button): scale/arp mode selectors
+  
+SCALE/ARP MAPPING (octave 0 with shift):
+  C  = scale selector (default)
+  C# = down
+  D  = include
+  D# = exclude
+  E  = random
+  F  = order
+  F# = repeat
+  G  = octup
+  G# = latch
+  
+  Octave 1 with shift (arp parameters):
+  C  = off
+  C# = sync
+  D  = (reserved)
+  D# = lower tempo
+  E  = (reserved)
+  F  = triad (chord type)
+      F = 1/4 (arp length)
+  F# = 7th (chord)
+       F# = 1/4T (arp length)
+  G  = 9th
+       G = 1/8
+  G# = random
+       G# = 1/8T
+  A  = off
+       A = 1/16
+  A# = (reserved)
+       A# = 1/16T
+  B  = (reserved - no shift)
+       B = major / 1/32
+  C' = (reserved - no shift)
+       C' = minor / 1/32T
+```
+
+- [ ] **Step 4: Implement MIDI input listener**
+
+Use Web MIDI API to:
+- Listen for controller buttons (play/stop/rec/etc.)
+- Map knobs to synth parameters (mode, octave, swing, tempo, transpose)
+- Map wheels to pitch bend & modulation
+- Map pads to drum/synth triggers + mode selection
+- Parse shift/select button for mode switching
+
+- [ ] **Step 5: Implement MIDI scale/arp selector logic**
+
+Notes C–B (octave 0 + shift) → scale/arp mode selection:
+- Store active mode in state
+- When pads (octave 1+) are triggered, apply selected scale/arp mode
+- Tempo/swing knobs control global settings
+- Transpose knob shifts all notes
+
+- [ ] **Step 6: Test MIDI controller mappings**
+
+```typescript
+describe('MIDI Controller', () => {
+  it('maps controller buttons to playback controls', () => {
+    const spy = jest.spyOn(sequencer, 'play');
+    midiController.onButtonPress('play');
+    expect(spy).toHaveBeenCalled();
+  });
+
+  it('maps knobs to synth parameters', () => {
+    midiController.onKnobChange('mode', 0.75); // 0-1 range
+    expect(sequencer.mode).toMatch(/some value/);
+  });
+
+  it('pads trigger notes with velocity', () => {
+    const spy = jest.spyOn(sequencer, 'triggerNote');
+    midiController.onPadPress(1, 100); // pad 1, velocity 100
+    expect(spy).toHaveBeenCalledWith(/* expected pitch */, 100);
+  });
+
+  it('shift+note selects scale/arp mode', () => {
+    midiController.onPadPress(0, 100, {shift: true}); // C + shift = scale select
+    expect(sequencer.scaleMode).toBe('scale');
+  });
+});
+```
+
+- [ ] **Step 7: Test keyboard + MIDI together (polyphony)**
+
+Both keyboard and MIDI controller active simultaneously:
+```typescript
+it('keyboard and MIDI controller work simultaneously', () => {
+  // Play C4 on keyboard
+  triggerKeyboardKey('Z');
+  // Play D4 on MIDI pad
+  midiController.onPadPress(2, 100);
+  // Both notes should sound
+  expect(activeNotes.length).toBe(2);
+});
+```
+
+- [ ] **Step 8: Run all tests; verify PASS**
+
+Run: `npm test -- tests/integration/keyboard-input.test.ts tests/integration/midi-controller.test.ts`
+
+- [ ] **Step 9: Commit**
 
 ```bash
-git add app/src/hooks/useKeyboardInput.ts tests/integration/keyboard-input.test.ts
-git commit -m "feat: keyboard input for real-time synth playback
+git add app/src/hooks/ app/src/lib/midiMapping.ts tests/integration/
+git commit -m "feat: keyboard + MIDI controller input (Beet hardware support)
 
+KEYBOARD:
 - QWERTY/ZXCV mapped to two octaves
 - Shift+Arrow to change octave
-- Polyphonic (multiple keys simultaneously)
-- Debounced key repeat"
+- Polyphonic (multiple keys)
+- Debounced key repeat
+
+MIDI CONTROLLER:
+- 6 buttons: play, stop, rec, BT, arp, scale/chord
+- 8 knobs: mode, octave, latch, gate, swing, tempo, rate, transpose
+- Pitch bend & mod wheel support
+- 8 pads with shift-selectable modes
+- Scale/arp selector (octave 0 with shift)
+- Arp parameters: length, type, sync, tempo modulation
+- Simultaneous keyboard + MIDI support
+
+Web MIDI API with full latency optimization."
 ```
 
 ---
