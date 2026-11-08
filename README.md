@@ -12,12 +12,12 @@ Part of the **Produce** suite: a collection of interconnected music creation app
 
 ### Features
 
-- **5 Synth Engines**
-  - **Tone Basic** — Warm, smooth polyphonic synth (ADSR)
-  - **Tone Wavetable** — Bright FM synthesis (bell-like tones)
-  - **Custom OSC** — Analog-style oscillator with dynamic filters
+- **5 Synth Engines** (synth-based drum sounds in MVP)
+  - **Tone Basic** — Warm, smooth polyphonic synth (melodic/bass)
+  - **Tone Wavetable** — Bright FM synthesis (bell-like leads)
+  - **Custom OSC** — Analog-style oscillator (synth bass & pads)
   - **Chiptune** — 8-bit retro/game sounds
-  - **Noise Perc** — Percussion hits & textural noise
+  - **Noise Perc** — Synthesized drums (kicks, snares, hi-hats, percussion)
 
 - **Timeline Composition**
   - Arrange 8 simultaneous tracks
@@ -78,6 +78,8 @@ Beet exports stems (audio files) that are pre-aligned for import into **Aged/Pro
 
 ### Future Roadmap
 
+**v1.1+ Features:**
+- 🎰 **Diced** — Sampler/loops station (user sample upload + effects, coming post-MVP)
 - **Bluetooth MIDI** support (lowest-latency controller mapping)
 - **AI sound generation** (describe sounds, Beet generates synth parameters)
 - **Preset sharing** (community sound library)
