@@ -160,17 +160,23 @@ export function RecordSection() {
     else if (a.type === 'pad-layer') handlePad(a.pad);
     else if (a.type === 'role-next') setNextRecordRole((r) => (r === 'adlib' ? 'backup' : 'adlib'));
     else if (a.type === 'fader') {
-      // SMK faders 1-4 → Warmth/Brightness/Punch/Space, mapped 0..2
+      // SMK knob Bank A 1-4 → Warmth/Brightness/Punch/Space, mapped 0..2
+      // (the SMK-25 has no faders — these knobs ARE the faders)
       const keys: (keyof Levels)[] = ['warmth', 'brightness', 'punch', 'space'];
       const key = keys[a.index];
       if (key) setLevels({ ...levelsRef.current, [key]: Math.round(a.value * 2 * 100) / 100 });
     } else if (a.type === 'knob') {
-      // knobs 1-8 → layer pans: knob N pans layer N-1 across L/C/R
+      // knobs 5-8 (both banks) → layer pans: knob N pans layer N across L/C/R
       const layer = layersRef.current[a.index];
       if (layer) {
         const pan = Math.round((a.value * 2 - 1) * 20) / 20;
         void setPanRef.current(layer.id, pan);
       }
+    } else if (a.type === 'volume') {
+      // knob Bank B 1-4 → ride a whole role's level: lead / doubles / backups / ad-libs
+      const roles: LayerRole[] = ['lead', 'double', 'backup', 'adlib'];
+      const role = roles[a.group];
+      if (role) void setGainRef.current(role, Math.round(a.value * 2 * 100) / 100);
     }
     // mod strip + pitch strip: reserved for live FX depth (Grocer territory)
   }), [handlePad, stopPlayback]);
@@ -178,6 +184,7 @@ export function RecordSection() {
   const levelsRef = useRef(levels);
   useEffect(() => { levelsRef.current = levels; }, [levels]);
   const setPanRef = useRef<(id: string, pan: number) => Promise<void>>(async () => {});
+  const setGainRef = useRef<(role: LayerRole, gain: number) => Promise<void>>(async () => {});
 
   /** Load a beat file from the device. */
   const addBeat = useCallback(async (files: FileList | File[]) => {
@@ -483,6 +490,16 @@ export function RecordSection() {
   }, [syncLayers, rerenderAll, template, levels]);
 
   useEffect(() => { setPanRef.current = setPan; }, [setPan]);
+
+  /** Ride every layer of one role at once — knob Bank B 1–4. */
+  const setGroupGain = useCallback(async (role: LayerRole, gain: number) => {
+    const next = layersRef.current.map((l) => (l.role === role ? { ...l, gain } : l));
+    syncLayers(next);
+    if (remixTimer.current) window.clearTimeout(remixTimer.current);
+    remixTimer.current = window.setTimeout(() => void rerenderAll(layersRef.current, template, levels), 450);
+  }, [syncLayers, rerenderAll, template, levels]);
+
+  useEffect(() => { setGainRef.current = setGroupGain; }, [setGroupGain]);
 
   const setLayerFx = useCallback(async (id: string, fx: string) => {
     const next = layersRef.current.map((l) => (l.id === id ? { ...l, fx } : l));
