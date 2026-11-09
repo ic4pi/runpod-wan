@@ -3,12 +3,16 @@ import { toast } from 'sonner';
 import { Bluetooth, Gamepad2, Loader2 } from 'lucide-react';
 import { smk, type MidiStatus } from '@/lib/audio/midi';
 
+// Both pad banks at a glance — Bank A: transport + L1–L4 · Bank B: L5–L8 + FX
 const PAD_LABELS = ['Play', 'Stop', 'Rec', 'Role', 'L1', 'L2', 'L3', 'L4', 'L5', 'L6', 'L7', 'L8', 'FX1', 'FX2', 'FX3', 'FX4'];
 
 /**
- * SMK controller panel — Bluetooth MIDI connect + a virtual pad strip.
+ * SMK-25 controller panel — Bluetooth MIDI connect + a virtual pad strip.
  * With hardware connected the pads light from real events; without it, the
  * on-screen pads emit the same actions so the template is always usable.
+ * Knob Bank A 1–4 drive the Levels (the SMK-25 has no faders — knobs are
+ * the faders), A 5–8 pan layers. Transport works once the buttons are set
+ * to CC mode in CubeSuite (REC→101, PLAY→102, STOP→103).
  */
 export function ControllerPanel({ onPad }: { onPad: (pad: number) => void }) {
   const [status, setStatus] = useState<MidiStatus>(smk.status);
@@ -20,7 +24,7 @@ export function ControllerPanel({ onPad }: { onPad: (pad: number) => void }) {
     setStatus(s);
     setDevice(name);
     if (s === 'denied') toast.error('MIDI access denied — allow it in browser settings.');
-    if (s === 'unsupported') toast.error('This browser has no MIDI — Chrome/Edge work best.');
+    if (s === 'unsupported') toast.error('No MIDI in this browser — iPhone browsers can\'t do MIDI; Chrome on Android, Mac or PC can.');
   }), []);
 
   useEffect(() => smk.onAction((a) => {
@@ -89,7 +93,7 @@ export function ControllerPanel({ onPad }: { onPad: (pad: number) => void }) {
       {status !== 'connected' && (
         <p className="mt-2 flex items-start gap-2 text-xs leading-relaxed text-muted-foreground/70">
           <Gamepad2 className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-          M-VAVE SMK template loaded. Pair over Bluetooth MIDI, or tap the pads — same actions either way.
+          M-VAVE SMK-25 template loaded. Knobs 1–4 are your Levels, 5–8 pan layers; both pad banks shown. Pair over Bluetooth MIDI, or tap the pads — same actions either way.
         </p>
       )}
     </div>

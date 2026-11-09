@@ -1,41 +1,68 @@
 /**
- * Sprouts controller layer — M-VAVE SMK as the hardware template.
- * WebMIDI over Bluetooth (SMK-25/37 advertise as BLE MIDI devices) with a
+ * Sprouts controller layer — M-VAVE SMK-25 as the hardware template.
+ * WebMIDI over Bluetooth (the SMK-25 advertises as a BLE MIDI device) with a
  * graceful fallback when WebMIDI or the device is unavailable.
  *
- * SMK control template (factory defaults, channel 1):
- *   Pads  36–51 (C2–D#3)  — 16 velocity pads
- *   Knobs CC 20–27        — 8 endless encoders (absolute 0–127)
- *   Faders CC 28–31       — 4 channel faders
- *   Touch pitch strip     — pitch bend
- *   Touch mod strip       — CC 1
- *   Transport keys        — note 52+ region (C3 up)
+ * SMK-25 reality (this unit has NO faders — 8 knobs + 8 pads, each with an
+ * A/B bank, a transport row, and the Scale-Chord key section):
+ *
+ *   Pads   notes 36–43 (Bank A) · 44–51 (Bank B) — factory defaults
+ *          A: Play Stop Rec Role L1–L4 · B: L5–L8 FX1–4
+ *          (the on-screen strip shows both banks at once)
+ *   Knobs  CC 20–27 (Bank A) — factory default
+ *          1–4 = Warmth/Brightness/Punch/Space — the Levels ARE the faders
+ *          5–8 = pan layers 1–4
+ *   Knobs  CC 28–35 (Bank B) — assign in the CubeSuite editor
+ *          1–4 = group volumes: lead / doubles / backups / ad-libs
+ *          5–8 = pan layers 5–8
+ *   Touch strips — pitch bend + CC 1 (mod) — reserved for live FX depth
+ *
+ *   TRANSPORT — read this: out of the box the SMK-25 transport row sends
+ *   MMC SysEx, which browsers refuse to deliver (sysex is blocked). So the
+ *   supported path is: in CubeSuite set the buttons to CC mode
+ *   (REC→CC101, PLAY→CC102, STOP→CC103) or Note mode (E3/F3/F#3/G3 = notes
+ *   52–55), then save it as a "SPROUTS" preset. We also listen for the
+ *   single-byte system real-time messages 0xFA/0xFB (play) and 0xFC (stop)
+ *   — some firmware modes emit those for free, no setup needed.
  */
 
 export type SproutsAction =
   | { type: 'record-toggle' }
   | { type: 'stop' }
   | { type: 'play-mix' }
-  | { type: 'pad-layer'; pad: number }       // pads 0-15 → layer ops
-  | { type: 'fader'; index: number; value: number } // 0-3 → warmth/brightness/punch/space, 0..1
-  | { type: 'knob'; index: number; value: number }  // 0-7 → layer pan/gain, 0..1
-  | { type: 'role-next' }                    // cycle ad-lib/backup
-  | { type: 'mod'; value: number }           // mod strip → live FX depth
-  | { type: 'pitch'; value: number };        // -1..1
+  | { type: 'pad-layer'; pad: number }        // pads 0-15 → layer ops (both banks)
+  | { type: 'fader'; index: number; value: number }  // 0-3 → warmth/brightness/punch/space, 0..1
+  | { type: 'knob'; index: number; value: number }   // 0-7 → layer pan, 0..1
+  | { type: 'volume'; group: number; value: number } // 0-3 → lead/doubles/backups/ad-libs, 0..1
+  | { type: 'role-next' }                     // cycle ad-lib/backup
+  | { type: 'mod'; value: number }            // mod strip → live FX depth
+  | { type: 'pitch'; value: number };         // -1..1
 
 export type MidiStatus = 'unsupported' | 'idle' | 'scanning' | 'connected' | 'denied';
 
 type Listener = (a: SproutsAction) => void;
 
-const PAD_NOTE_BASE = 36;       // C2
-const PAD_COUNT = 16;
-const KNOB_CC_BASE = 20;        // CC20-27
-const FADER_CC_BASE = 28;       // CC28-31
+const PAD_NOTE_BASE = 36;        // C2 — Bank A 36–43, Bank B 44–51 (factory)
+const PAD_COUNT = 16;            // window covers both banks
+const KNOB_CC_BASE = 20;         // Bank A: CC 20–27
+const KNOB_BANK_B_CC_BASE = 28;  // Bank B: CC 28–35 (assign in CubeSuite)
 const MOD_CC = 1;
-const NOTE_TRANSPORT_PLAY = 52; // E3
+
+// Transport — CC mode (set in CubeSuite; >100 to dodge knob/pad collisions)
+const CC_RECORD = 101;
+const CC_PLAY = 102;
+const CC_STOP = 103;
+
+// Transport — Note mode (alternative CubeSuite setting)
+const NOTE_TRANSPORT_PLAY = 52;  // E3
 const NOTE_TRANSPORT_STOP = 53;
-const NOTE_RECORD = 54;         // F#3 — the big one
+const NOTE_RECORD = 54;          // F#3 — the big one
 const NOTE_ROLE_NEXT = 55;
+
+// System real-time (single byte, never filtered by sysex:false)
+const RT_CONTINUE = 0xfb;
+const RT_START = 0xfa;
+const RT_STOP = 0xfc;
 
 class SmkController {
   private access: MIDIAccess | null = null;
@@ -112,7 +139,20 @@ class SmkController {
 
   private handle(e: MIDIMessageEvent): void {
     const data = e.data;
-    if (!data || data.length < 2) return;
+    if (!data || data.length === 0) return;
+
+    // Single-byte system real-time first (MMC start/stop ride these on some
+    // firmware — they pass the sysex filter, so transport can work stock).
+    if (data[0] === RT_START || data[0] === RT_CONTINUE) {
+      this.emit({ type: 'play-mix' });
+      return;
+    }
+    if (data[0] === RT_STOP) {
+      this.emit({ type: 'stop' });
+      return;
+    }
+    if (data.length < 2) return;
+
     const status = data[0] & 0xf0;
     const d1 = data[1];
     const d2 = data.length > 2 ? data[2] : 0;
@@ -132,10 +172,23 @@ class SmkController {
       }
     } else if (status === 0xb0) {
       // control change
-      if (d1 >= KNOB_CC_BASE && d1 < KNOB_CC_BASE + 8) {
-        this.emit({ type: 'knob', index: d1 - KNOB_CC_BASE, value: d2 / 127 });
-      } else if (d1 >= FADER_CC_BASE && d1 < FADER_CC_BASE + 4) {
-        this.emit({ type: 'fader', index: d1 - FADER_CC_BASE, value: d2 / 127 });
+      if (d1 === CC_RECORD) {
+        this.emit({ type: 'record-toggle' });
+      } else if (d1 === CC_PLAY) {
+        this.emit({ type: 'play-mix' });
+      } else if (d1 === CC_STOP) {
+        this.emit({ type: 'stop' });
+      } else if (d1 >= KNOB_CC_BASE && d1 < KNOB_CC_BASE + 8) {
+        // Bank A — knobs 1–4 are the Levels (this unit has no faders);
+        // knobs 5–8 pan layers 1–4.
+        const i = d1 - KNOB_CC_BASE;
+        if (i < 4) this.emit({ type: 'fader', index: i, value: d2 / 127 });
+        else this.emit({ type: 'knob', index: i - 4, value: d2 / 127 });
+      } else if (d1 >= KNOB_BANK_B_CC_BASE && d1 < KNOB_BANK_B_CC_BASE + 8) {
+        // Bank B — knobs 1–4 ride role volumes; knobs 5–8 pan layers 5–8.
+        const i = d1 - KNOB_BANK_B_CC_BASE;
+        if (i < 4) this.emit({ type: 'volume', group: i, value: d2 / 127 });
+        else this.emit({ type: 'knob', index: i, value: d2 / 127 });
       } else if (d1 === MOD_CC) {
         this.emit({ type: 'mod', value: d2 / 127 });
       }
