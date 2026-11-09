@@ -1,125 +1,171 @@
 # 🍠 Produce Ecosystem
 
-**Beet** — A browser-based synthesizer & composition tool for creating multi-track music.
-
-Part of the **Produce** suite: a collection of interconnected music creation apps built on open-source tools and web standards.
+**Produce** is a modular music creation platform built on web standards. Free hub with paid composition, recording, and mastering modules.
 
 ---
 
-## 🎵 Beet Synth
+## Quick Overview
 
-**Beet** is a real-time polyphonic synthesizer that lets you compose music using 5 distinct synth engines, arrange tracks on a timeline, and export stems for mixing.
+**Produce** (FREE) — 6-track mixer
+- Record basic vocals (no effects)
+- Upload 5 backing tracks
+- Volume + pan mixing
+- Save + download
 
-### Features
+**Paid Modules** (one-time purchase):
+- 🎹 **Beet** — Synth composition (5 engines, timeline, patterns)
+- 🎤 **Sprouts** — Advanced vocal recording (effects, templates, layers)
+- 🎛️ **Bakery** — Mixing + mastering (EQ, compression, master processing)
+- 🎰 **Diced** — Sampler + loops (one-time now → subscription later with sound packs)
 
-- **5 Synth Engines** (synth-based drum sounds in MVP)
-  - **Tone Basic** — Warm, smooth polyphonic synth (melodic/bass)
-  - **Tone Wavetable** — Bright FM synthesis (bell-like leads)
-  - **Custom OSC** — Analog-style oscillator (synth bass & pads)
-  - **Chiptune** — 8-bit retro/game sounds
-  - **Noise Perc** — Synthesized drums (kicks, snares, hi-hats, percussion)
+**Grocer** — Education layer (integrated guidance + tutorials across all modules)
 
-- **Timeline Composition**
-  - Arrange 8 simultaneous tracks
-  - 8–32 bars, BPM 60–180
-  - Per-track start times (drums bar 1, bass bar 5, etc.)
+---
 
-- **Real-Time Playback**
-  - Keyboard input (QWERTY/ZXCV → piano keys)
-  - Polyphonic (multiple notes at once)
-  - Auto-humanization (timing variation, velocity modulation)
+## Development
 
-- **Presets & Sessions**
-  - 50+ curated sounds (drums, bass, leads, pads, atmosphere, percussion)
-  - Save/load sessions to browser storage (IndexedDB)
+### Project Structure
 
-- **WAV Export**
-  - Export each track as 44.1 kHz WAV
-  - Automatic silence padding for timeline alignment
-  - Ready to import into **Levels** mixer
+```
+produce/           (FREE hub — main app)
+sprouts/           (PAID module — advanced vocals)
+beet/              (PAID module — synths, in progress)
+bakery/            (PAID module — mixing/mastering, planned)
+diced/             (PAID module — sampler/loops, planned)
+```
 
 ### Quick Start
 
 ```bash
-git clone https://github.com/ic4pi/produce.git
-cd produce/app
+# Install dependencies for all modules
 npm install
-npm run dev
-```
 
-Navigate to `http://localhost:5173` and start composing.
+# Run Produce hub in dev mode
+cd produce
+npm run dev
+
+# Build for production
+npm run build
+```
 
 ### Tech Stack
 
 - **React 19** + TypeScript
-- **Tone.js** (Web Audio API abstraction)
-- **Web Audio API** (native synthesis)
-- **IndexedDB** (session persistence)
-- **shadcn/ui** (UI components)
-- **Tailwind CSS** (styling)
-
-### Project Status
-
-**MVP Phase 1 — Core Synth Engine Complete** ✅
-
-- [x] Task 1: 5 synth engines with Tone.js (52 tests, all passing)
-- [ ] Task 2: Preset system + IndexedDB storage
-- [ ] Task 3: Timeline & sequencer
-- [ ] Task 4: WAV export with silence padding
-- [ ] Task 5: Keyboard input handling
-- [ ] Task 6: React UI (timeline editor, controls)
-- [ ] Task 7: Session management
-- [ ] Task 8: End-to-end testing
-- [ ] Task 9: Documentation
-
-### Integration with Aged/Processed Cheese
-
-Beet exports stems (audio files) that are pre-aligned for import into **Aged/Processed Cheese** — our mixing & mastering app. No manual timing adjustments needed. Layer Beet synth tracks with Sprouts vocals, then mix & master in Aged/Processed Cheese.
-
-### Future Roadmap
-
-**v1.1+ Features:**
-- 🎰 **Diced** — Sampler/loops station (user sample upload, trim, stretch, pitch, loop manipulation)
-- **Bluetooth MIDI** support (lowest-latency controller mapping)
-- **AI sound generation** (describe sounds, Beet generates synth parameters)
-- **Preset sharing** (community sound library)
-- **Advanced effects** (reverb, delay, compression per-track)
-
-### Development
-
-Run tests:
-```bash
-cd app
-npm test
-```
-
-Build for production:
-```bash
-npm run build
-```
-
-### License
-
-Open source. See LICENSE file.
-
-### Contributing
-
-Beet is built as an open-source project. Contributions welcome — see CONTRIBUTING.md.
+- **Vite** (build tool)
+- **Tone.js** (Web Audio API synthesis)
+- **Web Audio API** (native audio processing)
+- **IndexedDB** (local session storage)
+- **shadcn/ui** + **Tailwind CSS** (UI)
 
 ---
 
-## Produce Ecosystem
+## Module Details
 
-**Beet** is the synthesis & composition layer of Produce:
+### Produce (Free Hub)
+- 1 vocal recording track (plain, no effects/templates)
+- 5 backing track slots (upload or import from Beet)
+- Volume + pan per track
+- Drag-to-arrange, cut/copy/paste
+- Save sessions locally
+- Download final mix as WAV
 
-- 🍠 **Beet** — Synth engines + drum patterns/loops (you are here)
-- 🌱 **Sprouts** — Vocal recording + sound effects
-- 🧀 **Aged/Processed Cheese** — Multi-track mixing + mastering
+### Sprouts (Paid)
+- Advanced vocal recording with effects
+- Multiple takes and layers (lead, double, backup, ad-lib)
+- Effect inserts (reverb, compression, EQ)
+- Vocal templates for different genres
+- MIDI controller support
+- Export integration with Produce hub
 
-All apps are browser-based, free, and offline-capable.
+### Beet (Paid)
+- 5 synth engines (Tone Basic, Wavetable, Custom OSC, Chiptune, Noise Perc)
+- Timeline sequencer (8-32 bars, 60-180 BPM)
+- 8 simultaneous tracks
+- 50+ presets (drums, bass, leads, pads, atmosphere, percussion)
+- MIDI keyboard + controller support
+- WAV + MIDI export (ready for Bakery)
+
+### Bakery (Paid)
+- Multi-track mixing
+- Per-track EQ, compression, effects
+- Master bus processing
+- Stem export + bouncing
+- WAV + MP3 export
+
+### Diced (Paid, One-Time → Subscription)
+- User sample upload + library
+- Trim, stretch, pitch, loop manipulation
+- Sound pack subscriptions (future)
+- Project saving in cloud
 
 ---
 
-**Questions?** Check `app/SEED_GUIDE.md` for keyboard shortcuts and workflow.
+## Deployment
 
-Made with ❤️ and Web Audio API.
+**Production:** Vercel monorepo deployment
+- Produce hub serves at `/` (primary app)
+- Modules accessible via routing/UI
+- Free tier data stored in IndexedDB (on-device)
+- Paid modules gated by licensing logic
+
+```bash
+# Deploy to production
+git push github main
+```
+
+Vercel auto-deploys on main branch push. See `vercel.json` for build config.
+
+---
+
+## Pricing Model
+
+**Free Tier:**
+- Produce hub forever
+- 6 tracks, basic mixing, save locally
+
+**Paid Modules:**
+- One-time purchase: $3.99–$5.99 each (pricing TBD)
+- Unlock full feature sets (effects, templates, advanced editing)
+
+**Future Subscription (Diced):**
+- Pro sound packs
+- Cloud project saving
+- Premium presets + templates
+
+---
+
+## Documentation
+
+- **Produce Hub:** See `produce/README.md`
+- **Sprouts:** See `sprouts/README.md`
+- **Integration Guide:** See `PRODUCE_INTEGRATION.md`
+
+---
+
+## Architecture
+
+Each module is a self-contained React app with:
+- Its own `package.json` + build config
+- Local IndexedDB database (module-namespaced)
+- Produce session export format (Produce-compatible metadata)
+- Vercel deployment config
+
+Modules communicate via:
+- Export/import of WAV + metadata files
+- Shared `Produce` session format (44.1 kHz, 16-bit, stereo)
+- No cross-module real-time communication
+
+---
+
+## Browser Support
+
+- Chrome 90+
+- Firefox 88+
+- Safari 14+
+- (Web Audio API + IndexedDB required)
+
+---
+
+**Made with ❤️ and Web Audio API.**
+
+For issues or contributions, see GitHub: https://github.com/ic4pi/runpod-wan

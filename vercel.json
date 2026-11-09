@@ -1,0 +1,21 @@
+{
+  "version": 2,
+  "projects": {
+    "produce": {
+      "root": "produce",
+      "buildCommand": "npm run build",
+      "outputDirectory": "dist"
+    },
+    "sprouts": {
+      "root": "sprouts",
+      "buildCommand": "npm run build",
+      "outputDirectory": "dist"
+    }
+  },
+  "buildCommand": "npm run build",
+  "outputDirectory": "produce/dist",
+  "framework": "vite",
+  "env": [
+    "NODE_ENV=production"
+  ]
+}
