@@ -1,182 +1,194 @@
-import { useEffect, useRef, useState } from 'react';
-import JSZip from 'jszip';
-import { Download, Package, Play, Square, Trash2, Upload } from 'lucide-react';
+import { useRef, useState } from 'react';
 import { toast } from 'sonner';
-import { Toaster } from '@/components/ui/sonner';
-import { Button } from '@/components/ui/button';
+import { Download, Loader2, Play, RotateCcw, Share2, Square, Upload, X } from 'lucide-react';
 import { Slider } from '@/components/ui/slider';
-import {
-  DEFAULT_MASTER, forget, measure, play, renderMaster, renderStem, toWav,
-  type BTrack, type Master, type Player,
-} from '@/lib/engine';
-import { importFiles } from '@/lib/importer';
+import { mixStems } from '@/lib/audio/render';
+import { audioBufferToWav, formatBytes } from '@/lib/audio/wav';
 import { shareOrDownload } from '@/lib/audio/export';
-import { formatDuration } from '@/lib/audio/wav';
+import { importFiles, type Role, type Stem } from '@/lib/importer';
+import { DEFAULT_TEMPLATE_ID, LEVEL_DEFS, NEUTRAL_LEVELS, TEMPLATES, getTemplate, type Levels } from '@/lib/templates';
+import { Toaster } from '@/components/ui/sonner';
 
-const MAX_TRACKS = 16;
-const fmtDb = (x: number) => (isFinite(x) ? `${x.toFixed(1)} dB` : '-inf');
+const MAX_STEMS = 8;
+const ROLES: { id: Role; label: string }[] = [
+  { id: 'voice', label: 'Vocal' },
+  { id: 'beat', label: 'Beat' },
+  { id: 'bass', label: 'Bass' },
+];
 
-function Knob({ label, value, min, max, step, unit, onChange }: {
-  label: string; value: number; min: number; max: number; step: number; unit?: string; onChange: (v: number) => void;
-}) {
-  return (
-    <div>
-      <div className="mb-2 flex justify-between font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
-        <span>{label}</span><span>{unit === 'dB' ? `${value > 0 ? '+' : ''}${value.toFixed(0)}` : value.toFixed(2)}</span>
-      </div>
-      <Slider min={min} max={max} step={step} value={[value]} onValueChange={([v]) => onChange(v)} aria-label={label} />
-    </div>
-  );
-}
+const btn = 'flex min-h-12 items-center justify-center gap-2 font-mono text-xs uppercase tracking-[0.15em] focus-visible:outline-2 focus-visible:outline-primary';
 
 export default function App() {
-  const [tracks, setTracks] = useState<BTrack[]>([]);
-  const [master, setMaster] = useState<Master>(DEFAULT_MASTER);
+  const [templateId, setTemplateId] = useState(DEFAULT_TEMPLATE_ID);
+  const [levels, setLevels] = useState<Levels>(NEUTRAL_LEVELS);
+  const [stems, setStems] = useState<Stem[]>([]);
+  const [master, setMaster] = useState<AudioBuffer | null>(null);
+  const [mixing, setMixing] = useState(false);
   const [playing, setPlaying] = useState(false);
-  const [busy, setBusy] = useState<string | null>(null);
-  const [report, setReport] = useState<{ peakDb: number; rmsDb: number } | null>(null);
-  const player = useRef<Player | null>(null);
-  const live = useRef({ tracks, master });
-  live.current = { tracks, master };
+  const ctxRef = useRef<AudioContext | null>(null);
+  const srcRef = useRef<AudioBufferSourceNode | null>(null);
+  const template = getTemplate(templateId);
+  const neutral = LEVEL_DEFS.every((d) => levels[d.key] === 1);
 
-  useEffect(() => { player.current?.update(tracks, master); }, [tracks, master]);
-
-  const stop = () => { player.current?.stop(); player.current = null; setPlaying(false); };
-
-  const toggle = async () => {
-    if (playing) return stop();
-    try {
-      const p = await play(live.current.tracks, live.current.master);
-      player.current = p; setPlaying(true);
-      p.ended.then(() => { if (player.current === p) { player.current = null; setPlaying(false); } });
-    } catch { toast.error('Could not play audio'); }
+  const stop = () => {
+    const s = srcRef.current;
+    if (s) { s.onended = null; try { s.stop(); } catch { /* already stopped */ } s.disconnect(); }
+    srcRef.current = null; setPlaying(false);
   };
+  const stale = () => { stop(); setMaster(null); };
 
-  const patch = (id: string, p: Partial<BTrack>) =>
-    setTracks((ts) => ts.map((t) => (t.id === id ? { ...t, ...p } : t)));
-
-  const remove = (id: string) => { stop(); forget(id); setTracks((ts) => ts.filter((t) => t.id !== id)); };
-
-  const onImport = async (list: FileList | null) => {
+  const addFiles = async (list: FileList | null) => {
     if (!list?.length) return;
-    const room = MAX_TRACKS - tracks.length;
-    const { tracks: added, skipped } = await importFiles([...list]);
-    if (added.length > room) toast.error(`Track limit is ${MAX_TRACKS}. Extra tracks were not added.`);
-    stop();
-    setTracks((ts) => [...ts, ...added.slice(0, Math.max(0, room))]);
+    const { stems: added, skipped } = await importFiles([...list]);
+    const room = MAX_STEMS - stems.length;
+    if (added.length > room) toast.error(`Up to ${MAX_STEMS} stems. Extra files were not added.`);
     if (skipped.length) toast.error(`Skipped: ${skipped.join(', ')}`);
+    if (added.length) { stale(); setStems((s) => [...s, ...added.slice(0, Math.max(0, room))]); }
   };
 
-  const exportMaster = async () => {
-    setBusy('master'); stop();
+  const mixAndMaster = async () => {
+    stale(); setMixing(true);
     try {
-      const buf = await renderMaster(tracks, master);
-      const m = measure(buf);
-      setReport({ peakDb: m.peakDb, rmsDb: m.rmsDb });
-      await shareOrDownload(toWav(buf), 'bakery-master.wav', 'Bakery master');
-    } catch (e) { toast.error(e instanceof Error ? e.message : 'Export failed'); }
-    finally { setBusy(null); }
+      setMaster(await mixStems(stems.map((s) => ({ name: s.name, buffer: s.buffer, role: s.role })), template, levels));
+    } catch { toast.error('Mix failed. Try fewer or shorter stems.'); }
+    finally { setMixing(false); }
   };
 
-  const exportStems = async () => {
-    setBusy('stems'); stop();
-    try {
-      const zip = new JSZip();
-      const names = new Map<string, number>();
-      for (const t of tracks) {
-        const n = (names.get(t.name) ?? 0) + 1; names.set(t.name, n);
-        zip.file(`${t.name}${n > 1 ? `-${n}` : ''}.wav`, toWav(await renderStem(t)));
-      }
-      const blob = await zip.generateAsync({ type: 'blob', compression: 'STORE' });
-      const url = URL.createObjectURL(blob);
-      const a = Object.assign(document.createElement('a'), { href: url, download: 'bakery-stems.zip' });
-      a.click(); setTimeout(() => URL.revokeObjectURL(url), 5000);
-    } catch { toast.error('Stem export failed'); }
-    finally { setBusy(null); }
+  const togglePlay = async () => {
+    if (!master) return;
+    if (playing) return stop();
+    const ctx = (ctxRef.current ??= new (window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)());
+    if (ctx.state === 'suspended') await ctx.resume();
+    const src = ctx.createBufferSource();
+    src.buffer = master; src.connect(ctx.destination);
+    src.onended = () => { srcRef.current = null; setPlaying(false); };
+    srcRef.current = src; setPlaying(true); src.start();
   };
 
-  const has = tracks.length > 0;
+  const filename = `bakery-${template.id}-master.wav`;
+  const save = (share: boolean) => {
+    if (!master) return;
+    const blob = audioBufferToWav(master);
+    if (share) return void shareOrDownload(blob, filename, 'Bakery master');
+    const url = URL.createObjectURL(blob);
+    Object.assign(document.createElement('a'), { href: url, download: filename }).click();
+    setTimeout(() => URL.revokeObjectURL(url), 5000);
+  };
 
   return (
     <div className="min-h-dvh bg-background text-foreground">
-      <div className="mx-auto w-full max-w-3xl px-5 pb-36 pt-6">
-        <header className="flex items-center justify-between">
+      <div className="mx-auto flex w-full max-w-2xl flex-col gap-8 px-5 pb-16 pt-6">
+        <header>
           <h1 className="text-xl font-medium tracking-tight">
             BAKERY<span className="text-primary">.</span>
             <span className="ml-2 align-middle font-mono text-[9px] uppercase tracking-[0.25em] text-muted-foreground/60">Mix &amp; Master</span>
           </h1>
-          <label className="inline-flex cursor-pointer items-center bg-primary px-4 py-2 text-sm text-primary-foreground hover:bg-primary/90">
-            <Upload className="mr-2 h-4 w-4" /> Import
-            <input type="file" multiple accept="audio/*,.zip,application/zip" className="sr-only"
-              onChange={(e) => { onImport(e.target.files); e.target.value = ''; }} />
-          </label>
+          <p className="mt-3 text-sm text-muted-foreground">Pick a sound, drop your stems, get a finished master.</p>
         </header>
 
-        <p className="mt-4 text-sm text-muted-foreground">
-          Import audio files or a Produce session .zip (from Sprouts, Beet or Produce). Shape each track, set the master, export.
-        </p>
-
-        {!has && (
-          <div className="mt-8 border border-dashed border-border p-10 text-center text-sm text-muted-foreground">
-            No tracks yet. Tap Import.
+        {/* 1. Template */}
+        <section>
+          <p className="mb-3 font-mono text-[11px] uppercase tracking-[0.25em] text-muted-foreground">1 · Sound</p>
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+            {TEMPLATES.map((t) => (
+              <button key={t.id} onClick={() => { setTemplateId(t.id); stale(); }} aria-pressed={t.id === templateId}
+                className={`${btn} min-h-14 flex-col border ${t.id === templateId ? 'border-primary bg-primary/10 text-foreground' : 'border-border text-muted-foreground hover:text-foreground'}`}>
+                <span className="text-sm normal-case tracking-normal">{t.name}</span>
+              </button>
+            ))}
           </div>
-        )}
+          <p className="mt-3 text-sm text-muted-foreground">{template.blurb}</p>
 
-        <ul className="mt-6 space-y-3">
-          {tracks.map((t) => (
-            <li key={t.id} className="border border-border bg-card p-4">
-              <div className="flex items-center gap-2">
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm">{t.name}</p>
-                  <p className="font-mono text-[10px] text-muted-foreground">
-                    {formatDuration(t.duration)}{t.offset > 0 ? ` · starts ${t.offset.toFixed(1)}s` : ''}
-                  </p>
-                </div>
-                <Button size="sm" variant={t.mute ? 'default' : 'secondary'} aria-pressed={t.mute} onClick={() => patch(t.id, { mute: !t.mute })}>M</Button>
-                <Button size="sm" variant={t.solo ? 'default' : 'secondary'} aria-pressed={t.solo} onClick={() => patch(t.id, { solo: !t.solo })}>S</Button>
-                <Button size="icon" variant="ghost" aria-label={`Remove ${t.name}`} onClick={() => remove(t.id)}><Trash2 className="h-4 w-4" /></Button>
-              </div>
-              <div className="mt-4 grid grid-cols-2 gap-x-6 gap-y-4 sm:grid-cols-3">
-                <Knob label="Volume" value={t.volume} min={0} max={1.5} step={0.01} onChange={(v) => patch(t.id, { volume: v })} />
-                <Knob label="Pan" value={t.pan} min={-1} max={1} step={0.02} onChange={(v) => patch(t.id, { pan: v })} />
-                <Knob label="Compress" value={t.comp} min={0} max={1} step={0.01} onChange={(v) => patch(t.id, { comp: v })} />
-                <Knob label="Low" unit="dB" value={t.eq.low} min={-12} max={12} step={1} onChange={(v) => patch(t.id, { eq: { ...t.eq, low: v } })} />
-                <Knob label="Mid" unit="dB" value={t.eq.mid} min={-12} max={12} step={1} onChange={(v) => patch(t.id, { eq: { ...t.eq, mid: v } })} />
-                <Knob label="High" unit="dB" value={t.eq.high} min={-12} max={12} step={1} onChange={(v) => patch(t.id, { eq: { ...t.eq, high: v } })} />
-              </div>
-            </li>
-          ))}
-        </ul>
-
-        {has && (
-          <section className="mt-8 border border-primary/40 bg-card p-4">
-            <h2 className="mb-4 font-mono text-xs uppercase tracking-[0.25em] text-primary">Master</h2>
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-              <Knob label="Glue" value={master.glue} min={0} max={1} step={0.01} onChange={(v) => setMaster({ ...master, glue: v })} />
-              <Knob label="Loudness" value={master.loudness} min={0} max={1} step={0.01} onChange={(v) => setMaster({ ...master, loudness: v })} />
-              <Knob label="Ceiling dB" value={master.ceilingDb} min={-6} max={0} step={0.1} onChange={(v) => setMaster({ ...master, ceilingDb: v })} />
+          <div className="mt-4 border border-border">
+            <div className="flex items-center justify-between border-b border-border px-4 py-2">
+              <span className="font-mono text-[11px] uppercase tracking-[0.25em] text-muted-foreground">Fine-tune</span>
+              <button onClick={() => { setLevels(NEUTRAL_LEVELS); stale(); }} disabled={neutral}
+                className="flex min-h-11 items-center gap-1.5 px-2 font-mono text-[11px] uppercase tracking-[0.15em] text-muted-foreground hover:text-foreground disabled:opacity-30">
+                <RotateCcw className="h-3.5 w-3.5" /> Reset
+              </button>
             </div>
-            {report && (
-              <p className="mt-4 font-mono text-xs text-muted-foreground">
-                Last export: peak {fmtDb(report.peakDb)} · average level (RMS) {fmtDb(report.rmsDb)}
-              </p>
-            )}
-          </section>
-        )}
-      </div>
+            <div className="grid grid-cols-2 gap-x-6 gap-y-5 p-4 sm:grid-cols-4">
+              {LEVEL_DEFS.map((d) => {
+                const off = Math.round((levels[d.key] - 1) * 100);
+                return (
+                  <div key={d.key}>
+                    <div className="mb-2 flex justify-between font-mono text-[10px] uppercase tracking-[0.15em]">
+                      <span>{d.name}</span>
+                      <span className={off === 0 ? 'text-muted-foreground/40' : 'text-primary'}>{off === 0 ? '—' : off < 0 ? d.less : d.more}</span>
+                    </div>
+                    <Slider min={0} max={2} step={0.05} value={[levels[d.key]]} aria-label={d.name}
+                      onValueChange={([v]) => { setLevels({ ...levels, [d.key]: v }); stale(); }} />
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </section>
 
-      <div className="fixed inset-x-0 bottom-0 border-t border-border bg-background/95 backdrop-blur-sm" style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
-        <div className="mx-auto flex max-w-3xl gap-3 px-5 py-3">
-          <Button className="flex-1" variant="secondary" disabled={!has} onClick={toggle}>
-            {playing ? <><Square className="mr-2 h-4 w-4" /> Stop</> : <><Play className="mr-2 h-4 w-4" /> Play</>}
-          </Button>
-          <Button className="flex-1" variant="secondary" disabled={!has || !!busy} onClick={exportStems}>
-            <Package className="mr-2 h-4 w-4" /> {busy === 'stems' ? 'Bouncing…' : 'Stems'}
-          </Button>
-          <Button className="flex-1" disabled={!has || !!busy} onClick={exportMaster}>
-            <Download className="mr-2 h-4 w-4" /> {busy === 'master' ? 'Mastering…' : 'Master WAV'}
-          </Button>
-        </div>
+        {/* 2. Stems */}
+        <section>
+          <p className="mb-3 font-mono text-[11px] uppercase tracking-[0.25em] text-muted-foreground">2 · Stems</p>
+          <label className="flex min-h-28 cursor-pointer flex-col items-center justify-center gap-2 border border-dashed border-border px-6 py-8 text-center hover:border-foreground/40">
+            <Upload className="h-5 w-5 text-muted-foreground" />
+            <span className="text-sm text-muted-foreground">Tap to choose files, or a Produce session .zip</span>
+            <span className="font-mono text-[10px] uppercase tracking-[0.15em] text-muted-foreground/60">WAV · MP3 · M4A · OGG · FLAC · up to {MAX_STEMS} stems</span>
+            <input type="file" multiple accept="audio/*,.zip,application/zip" className="sr-only"
+              onChange={(e) => { void addFiles(e.target.files); e.target.value = ''; }} />
+          </label>
+
+          {stems.length > 0 && (
+            <ul className="mt-3 divide-y divide-border border border-border">
+              {stems.map((s) => (
+                <li key={s.id} className="flex items-center gap-3 px-4 py-3">
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm">{s.name}</p>
+                    <p className="font-mono text-[10px] uppercase tracking-[0.12em] text-muted-foreground">{formatBytes(s.size)} · {s.buffer.duration.toFixed(1)}s</p>
+                  </div>
+                  <div className="flex border border-border">
+                    {ROLES.map((r) => (
+                      <button key={r.id} aria-pressed={s.role === r.id}
+                        onClick={() => { setStems((p) => p.map((x) => (x.id === s.id ? { ...x, role: r.id } : x))); stale(); }}
+                        className={`min-h-11 px-3 font-mono text-[11px] uppercase tracking-[0.1em] ${s.role === r.id ? 'bg-foreground text-background' : 'text-muted-foreground hover:text-foreground'}`}>
+                        {r.label}
+                      </button>
+                    ))}
+                  </div>
+                  <button aria-label={`Remove ${s.name}`} onClick={() => { setStems((p) => p.filter((x) => x.id !== s.id)); stale(); }}
+                    className="flex h-11 w-11 items-center justify-center text-muted-foreground hover:text-foreground"><X className="h-4 w-4" /></button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+
+        {/* 3. Mix & master */}
+        <section>
+          <p className="mb-3 font-mono text-[11px] uppercase tracking-[0.25em] text-muted-foreground">3 · Master</p>
+          <button onClick={mixAndMaster} disabled={!stems.length || mixing}
+            className={`${btn} min-h-14 w-full bg-foreground text-sm text-background hover:opacity-90 disabled:opacity-40`}>
+            {mixing && <Loader2 className="h-5 w-5 animate-spin" />}
+            {mixing ? 'Mixing and mastering…' : master ? 'Mix again' : 'Mix & Master'}
+          </button>
+
+          {master && (
+            <div className="mt-4 border border-primary/50 bg-primary/5">
+              <div className="flex items-center gap-3 px-4 py-4">
+                <button onClick={togglePlay} aria-label={playing ? 'Stop master' : 'Play master'}
+                  className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-foreground text-background">
+                  {playing ? <Square className="h-4 w-4 fill-current" /> : <Play className="ml-0.5 h-5 w-5 fill-current" />}
+                </button>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-medium">{template.name} master</p>
+                  <p className="font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground">Leveled · glued · limited to {template.master.ceilingDb} dB</p>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 divide-x divide-primary/30 border-t border-primary/30">
+                <button onClick={() => save(true)} className={`${btn} hover:bg-foreground/5`}><Share2 className="h-4 w-4" /> Share</button>
+                <button onClick={() => save(false)} className={`${btn} hover:bg-foreground/5`}><Download className="h-4 w-4" /> WAV</button>
+              </div>
+            </div>
+          )}
+        </section>
       </div>
       <Toaster theme="dark" position="top-center" />
     </div>

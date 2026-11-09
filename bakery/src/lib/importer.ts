@@ -1,60 +1,62 @@
 import JSZip from 'jszip';
-import { liveCtx, type BTrack } from './engine';
+import { decodeBlob, type StemInput } from './audio/render';
+import { guessRole } from './templates';
+
+export type Role = StemInput['role'];
+export interface Stem { id: string; name: string; size: number; buffer: AudioBuffer; role: Role }
 
 const AUDIO_EXT = /\.(wav|mp3|m4a|aac|ogg|opus|flac|webm|mp4)$/i;
 const MIME: Record<string, string> = {
   wav: 'audio/wav', mp3: 'audio/mpeg', m4a: 'audio/mp4', aac: 'audio/aac',
   ogg: 'audio/ogg', opus: 'audio/ogg', flac: 'audio/flac', webm: 'audio/webm', mp4: 'audio/mp4',
 };
-
-interface SessionTrack { name?: string; startBar?: number; offsetSeconds?: number; pan?: number | null; gain?: number | null; file?: string }
-interface Session { suite?: string; bpm?: number; tracks?: SessionTrack[] }
-
 const newId = () => crypto.randomUUID();
-const stem = (n: string) => n.replace(/^.*[\\/]/, '').replace(/\.[^.]+$/, '');
+const base = (n: string) => n.replace(/^.*[\\/]/, '');
+const escapeRe = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
-async function toTrack(blob: Blob, name: string, extra: Partial<BTrack> = {}): Promise<BTrack> {
-  const buf = await liveCtx().decodeAudioData(await blob.arrayBuffer());
-  return {
-    id: newId(), name, blob, duration: buf.duration, offset: 0, volume: 0.8, pan: 0,
-    mute: false, solo: false, eq: { low: 0, mid: 0, high: 0 }, comp: 0, ...extra,
-  };
+/** Produce session roles (lead, double, backup, adlib, beat) -> Bakery buses. */
+function roleFromSession(role: string | undefined, name: string): Role {
+  if (role === 'beat') return 'beat';
+  if (role === 'bass') return 'bass';
+  if (role && /lead|double|backup|adlib|vocal|voice/.test(role)) return 'voice';
+  return guessRole(name);
+}
+
+async function toStem(blob: Blob, name: string, size: number, role: Role): Promise<Stem> {
+  return { id: newId(), name, size, buffer: await decodeBlob(blob), role };
 }
 
 /** Import loose audio files and/or Produce session bundles (.zip with session.json + stems). */
-export async function importFiles(files: File[]): Promise<{ tracks: BTrack[]; skipped: string[] }> {
-  const tracks: BTrack[] = [];
+export async function importFiles(files: File[]): Promise<{ stems: Stem[]; skipped: string[] }> {
+  const stems: Stem[] = [];
   const skipped: string[] = [];
 
   for (const f of files) {
     try {
       if (/\.zip$/i.test(f.name)) {
         const zip = await JSZip.loadAsync(f);
-        const sessionFile = zip.file(/(^|\/)session\.json$/i)[0];
-        const session: Session | null = sessionFile ? safeJson(await sessionFile.async('string')) : null;
-        const bar = session?.bpm ? (60 / session.bpm) * 4 : 0;
-        const used = new Set<string>();
-
-        for (const st of session?.tracks ?? []) {
-          const entry = st.file ? zip.file(new RegExp(`(^|/)${escapeRe(st.file)}$`, 'i'))[0] : undefined;
-          if (!entry) { skipped.push(`${st.name ?? st.file ?? 'track'} (file missing in zip)`); continue; }
-          used.add(entry.name);
-          const ext = entry.name.split('.').pop()!.toLowerCase();
-          const blob = new Blob([await entry.async('arraybuffer')], { type: MIME[ext] ?? 'audio/wav' });
-          tracks.push(await toTrack(blob, st.name ?? stem(entry.name), {
-            offset: (st.startBar ?? 0) * bar + (st.offsetSeconds ?? 0),
-            pan: st.pan ?? 0,
-            volume: Math.min(1.5, st.gain ?? 0.8),
-          }));
+        const sf = zip.file(/(^|\/)session\.json$/i)[0];
+        let listed: { name?: string; role?: string; file?: string }[] = [];
+        if (sf) {
+          try { const o = JSON.parse(await sf.async('string')); if (Array.isArray(o.tracks)) listed = o.tracks; } catch { /* ignore bad session.json */ }
         }
-        // any audio in the zip the session did not list
+        const used = new Set<string>();
+        for (const t of listed) {
+          const e = t.file ? zip.file(new RegExp(`(^|/)${escapeRe(t.file)}$`, 'i'))[0] : undefined;
+          if (!e) { skipped.push(`${t.name ?? t.file ?? 'track'} (missing in zip)`); continue; }
+          used.add(e.name);
+          const ext = e.name.split('.').pop()!.toLowerCase();
+          const data = await e.async('arraybuffer');
+          stems.push(await toStem(new Blob([data], { type: MIME[ext] ?? 'audio/wav' }), base(e.name), data.byteLength, roleFromSession(t.role, e.name)));
+        }
         for (const e of zip.file(AUDIO_EXT)) {
           if (used.has(e.name)) continue;
           const ext = e.name.split('.').pop()!.toLowerCase();
-          tracks.push(await toTrack(new Blob([await e.async('arraybuffer')], { type: MIME[ext] ?? 'audio/wav' }), stem(e.name)));
+          const data = await e.async('arraybuffer');
+          stems.push(await toStem(new Blob([data], { type: MIME[ext] ?? 'audio/wav' }), base(e.name), data.byteLength, guessRole(e.name)));
         }
       } else if (f.type.startsWith('audio/') || AUDIO_EXT.test(f.name)) {
-        tracks.push(await toTrack(f, stem(f.name)));
+        stems.push(await toStem(f, f.name, f.size, guessRole(f.name)));
       } else {
         skipped.push(`${f.name} (not audio)`);
       }
@@ -62,10 +64,5 @@ export async function importFiles(files: File[]): Promise<{ tracks: BTrack[]; sk
       skipped.push(`${f.name} (could not be read)`);
     }
   }
-  return { tracks, skipped };
+  return { stems, skipped };
 }
-
-function safeJson(s: string): Session | null {
-  try { const o = JSON.parse(s) as Session; return o && Array.isArray(o.tracks) ? o : null; } catch { return null; }
-}
-const escapeRe = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
