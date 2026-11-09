@@ -7,7 +7,11 @@
       "Bash(npm install *)",
       "Bash(npx tsc *)",
       "Bash(git config *)",
-      "Bash(git push *)"
+      "Bash(git push *)",
+      "Bash(curl -s \"https://api.github.com/users/ic4pi/repos?per_page=100\")",
+      "Bash(git remote *)",
+      "Read(//home/capicapi/Downloads/**)",
+      "Bash(unzip -q \"Kimi_Agent_BandLab-Integrated Music Studio\\(1\\).zip\")"
     ]
   }
 }
