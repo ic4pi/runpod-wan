@@ -1,17 +1,20 @@
 import JSZip from 'jszip';
 import { audioBufferToWav } from './audio/wav';
-import { audible, stepSeconds, totalSteps, type Session, type Track } from './session';
+import { audible, entryStep, stepSeconds, totalSteps, type Session, type Track } from './session';
+import { feel } from './humanize';
+import { createFxBus, createStrip, setStrip } from './fx';
 import { getPreset, voiceOf } from './synth/presets';
 
 const SR = 44100;
-const TAIL = 1.5;
+const TAIL = 3;
 
 function schedule(ctx: BaseAudioContext, out: AudioNode, t: Track, s: Session) {
-  const { engine, params } = voiceOf(t.presetId);
-  const dur = stepSeconds(s.bpm), total = totalSteps(s);
+  const { engine, params, trim } = voiceOf(t.presetId);
+  const dur = stepSeconds(s.bpm), total = totalSteps(s), entry = entryStep(t);
   for (const n of t.notes) {
-    if (n.step >= total) continue;
-    engine.play(ctx, out, { pitch: n.pitch, vel: n.vel, time: n.step * dur, dur: n.len * dur }, params);
+    if (n.step >= total || n.step < entry) continue;
+    const f = feel(t, n);
+    engine.play(ctx, out, { pitch: n.pitch, vel: f.vel * trim, time: n.step * dur + f.delay, dur: n.len * dur }, params);
   }
 }
 
@@ -19,11 +22,10 @@ function offline(s: Session) {
   return new OfflineAudioContext(2, Math.ceil((totalSteps(s) * stepSeconds(s.bpm) + TAIL) * SR), SR);
 }
 
-function strip(ctx: BaseAudioContext, t: Track, dest: AudioNode, s: Session) {
-  const g = ctx.createGain(); g.gain.value = t.volume;
-  const p = ctx.createStereoPanner(); p.pan.value = t.pan;
-  g.connect(p); p.connect(dest);
-  schedule(ctx, g, t, s);
+function strip(ctx: BaseAudioContext, t: Track, dest: AudioNode, s: Session, bus: ReturnType<typeof createFxBus>) {
+  const st = createStrip(ctx, dest, bus);
+  setStrip(st, t, true);
+  schedule(ctx, st.input, t, s);
 }
 
 function trimTo(buf: AudioBuffer, db: number) {
@@ -36,9 +38,10 @@ function trimTo(buf: AudioBuffer, db: number) {
 /** The whole song, audible tracks summed. Only reduces level if it would clip. */
 export async function renderMix(s: Session): Promise<AudioBuffer> {
   const on = audible(s);
-  if (!on.length || !on.some((t) => t.notes.length)) throw new Error('Nothing to export. Add some notes first.');
+  if (!on.length || !on.some((t) => t.notes.some((n) => n.step >= entryStep(t)))) throw new Error('Nothing to export. Add some notes first.');
   const ctx = offline(s);
-  for (const t of on) strip(ctx, t, ctx.destination, s);
+  const bus = createFxBus(ctx, ctx.destination, s.bpm);
+  for (const t of on) strip(ctx, t, ctx.destination, s, bus);
   const out = await ctx.startRendering();
   trimTo(out, -1);
   return out;
@@ -47,7 +50,8 @@ export async function renderMix(s: Session): Promise<AudioBuffer> {
 /** One track with its volume and pan baked in. Starts at bar 1 so every stem lines up. */
 export async function renderStem(s: Session, t: Track): Promise<AudioBuffer> {
   const ctx = offline(s);
-  strip(ctx, t, ctx.destination, s);
+  const bus = createFxBus(ctx, ctx.destination, s.bpm);
+  strip(ctx, t, ctx.destination, s, bus);
   const out = await ctx.startRendering();
   trimTo(out, -0.5);
   return out;
@@ -57,7 +61,7 @@ const safe = (n: string) => n.replace(/[^a-z0-9 _-]/gi, '').trim().replace(/\s+/
 
 /** Produce session bundle: stems/*.wav + session.json. Bakery and the Produce apps import this. */
 export async function exportBundle(s: Session, sessionName = 'Beet session'): Promise<Blob> {
-  const on = audible(s).filter((t) => t.notes.length);
+  const on = audible(s).filter((t) => t.notes.some((n) => n.step >= entryStep(t)));
   if (!on.length) throw new Error('Nothing to export. Add some notes first.');
   const zip = new JSZip();
   const used = new Map<string, number>();

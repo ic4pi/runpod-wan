@@ -9,16 +9,21 @@ export interface Note { step: number; pitch: number; len: number; vel: number }
 export interface Track {
   id: string; name: string; presetId: string;
   volume: number; pan: number; mute: boolean; solo: boolean;
+  /** the track is silent until this bar (0-based) */
+  startBar: number;
+  reverb: number; delay: number; humanize: number;
   notes: Note[];
 }
 export interface Session { bpm: number; bars: number; tracks: Track[] }
 
 const KEY = 'beet-session-v1';
 const newId = () => crypto.randomUUID();
+const clamp = (x: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, x));
 
 export const isDrumTrack = (t: Track) => getPreset(t.presetId).category === 'drums';
 export const totalSteps = (s: Session) => s.bars * STEPS_PER_BAR;
 export const stepSeconds = (bpm: number) => 60 / bpm / 4;
+export const entryStep = (t: Track) => t.startBar * STEPS_PER_BAR;
 
 export function audible(s: Session): Track[] {
   const anySolo = s.tracks.some((t) => t.solo);
@@ -30,7 +35,8 @@ export function newTrack(presetId: string, existing: Track[]): Track {
   const n = existing.filter((t) => t.presetId === presetId).length;
   return {
     id: newId(), name: n ? `${p.name} ${n + 1}` : p.name, presetId,
-    volume: p.category === 'drums' ? 0.9 : 0.75, pan: 0, mute: false, solo: false, notes: [],
+    volume: p.category === 'drums' ? 0.9 : 0.75, pan: 0, mute: false, solo: false,
+    startBar: 0, reverb: 0, delay: 0, humanize: 0, notes: [],
   };
 }
 
@@ -51,14 +57,29 @@ export function defaultSession(): Session {
   return { bpm: 92, bars: 2, tracks: [drums] };
 }
 
+/** Accepts sessions saved by older versions (fills missing fields). Returns null if unusable. */
+export function normalizeSession(raw: unknown): Session | null {
+  const s = raw as Partial<Session> | null;
+  if (!s || typeof s.bpm !== 'number' || !BAR_OPTIONS.includes(s.bars as number) || !Array.isArray(s.tracks) || s.tracks.length > MAX_TRACKS) return null;
+  const tracks: Track[] = [];
+  for (const t of s.tracks as Partial<Track>[]) {
+    if (!t || typeof t.id !== 'string' || !Array.isArray(t.notes) || !PRESETS.some((p) => p.id === t.presetId)) return null;
+    tracks.push({
+      id: t.id, name: String(t.name ?? 'Track'), presetId: t.presetId as string,
+      volume: clamp(Number(t.volume ?? 0.8), 0, 1.2), pan: clamp(Number(t.pan ?? 0), -1, 1),
+      mute: !!t.mute, solo: !!t.solo,
+      startBar: clamp(Math.round(Number(t.startBar ?? 0)), 0, (s.bars as number) - 1),
+      reverb: clamp(Number(t.reverb ?? 0), 0, 1), delay: clamp(Number(t.delay ?? 0), 0, 1), humanize: clamp(Number(t.humanize ?? 0), 0, 1),
+      notes: (t.notes as Note[]).filter((n) => n && Number.isFinite(n.step) && Number.isFinite(n.pitch) && n.len >= 1),
+    });
+  }
+  return { bpm: clamp(Math.round(s.bpm), 60, 180), bars: s.bars as number, tracks };
+}
+
 export function loadSession(): Session {
   try {
     const raw = localStorage.getItem(KEY);
-    if (raw) {
-      const s = JSON.parse(raw) as Session;
-      if (s && typeof s.bpm === 'number' && BAR_OPTIONS.includes(s.bars) && Array.isArray(s.tracks) && s.tracks.length <= MAX_TRACKS &&
-        s.tracks.every((t) => t && typeof t.id === 'string' && Array.isArray(t.notes) && PRESETS.some((p) => p.id === t.presetId))) return s;
-    }
+    if (raw) { const s = normalizeSession(JSON.parse(raw)); if (s) return s; }
   } catch { /* corrupt or blocked storage: fall back to the starter */ }
   return defaultSession();
 }

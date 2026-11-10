@@ -7,17 +7,25 @@ export const PIANO_KEYS: Record<string, number> = {
 /** Drum layout: index into [Kick, Snare, Clap, Closed Hat, Open Hat, Tom, Rim, Crash]. */
 export const DRUM_KEYS: Record<string, number> = { a: 0, s: 1, d: 2, f: 3, g: 4, h: 5, j: 6, k: 7 };
 
-interface Handlers { onKey: (key: string) => void; onOctave: (d: number) => void; onToggle: () => void }
+interface Handlers {
+  onKey: (key: string) => void; onOctave: (d: number) => void; onToggle: () => void;
+  onUndo: () => void; onRedo: () => void;
+}
 
 export function useKeyboard(h: Handlers) {
   const ref = useRef(h);
   ref.current = h;
   useEffect(() => {
     const down = (e: KeyboardEvent) => {
-      if (e.repeat || e.metaKey || e.ctrlKey || e.altKey) return;
       const t = e.target as HTMLElement | null;
       if (t && (t.tagName === 'INPUT' || t.tagName === 'SELECT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return;
       const k = e.key.toLowerCase();
+      if ((e.metaKey || e.ctrlKey) && (k === 'z' || k === 'y')) {
+        e.preventDefault();
+        if (k === 'y' || e.shiftKey) ref.current.onRedo(); else ref.current.onUndo();
+        return;
+      }
+      if (e.repeat || e.metaKey || e.ctrlKey || e.altKey) return;
       if (e.code === 'Space') { e.preventDefault(); ref.current.onToggle(); }
       else if (k === 'z') ref.current.onOctave(-1);
       else if (k === 'x') ref.current.onOctave(1);
