@@ -1,0 +1,15 @@
+{
+  "name": "produce-site",
+  "private": true,
+  "version": "0.1.0",
+  "scripts": {
+    "build": "node scripts/build-site.mjs",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@vercel/edge": "^1.3.3"
+  },
+  "devDependencies": {
+    "vitest": "^5.1.0"
+  }
+}

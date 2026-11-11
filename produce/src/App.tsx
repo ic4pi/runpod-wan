@@ -141,9 +141,17 @@ export default function App() {
             PRODUCE<span className="text-primary">.</span>
             <span className="ml-2 align-middle font-mono text-[9px] uppercase tracking-[0.25em] text-muted-foreground/60">Free</span>
           </h1>
-          <Button variant="ghost" size="sm" onClick={() => (hasAudio ? setConfirmNew(true) : newProject())}>
-            <FilePlus className="mr-2 h-4 w-4" /> New project
-          </Button>
+          <div className="flex items-center gap-1">
+            <a
+              href="/account/"
+              className="inline-flex min-h-9 items-center px-3 text-sm text-muted-foreground underline-offset-4 hover:text-foreground hover:underline focus-visible:outline-2 focus-visible:outline-primary"
+            >
+              More modules
+            </a>
+            <Button variant="ghost" size="sm" onClick={() => (hasAudio ? setConfirmNew(true) : newProject())}>
+              <FilePlus className="mr-2 h-4 w-4" /> New project
+            </Button>
+          </div>
         </header>
 
         <p className="mt-4 text-sm text-muted-foreground">
