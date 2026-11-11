@@ -10,7 +10,14 @@ export interface Track {
   duration: number;
   volume: number; // 0..1.5
   pan: number; // -1..1
+  /** Seconds the track is moved against the others: + plays later, - plays earlier. */
+  offset: number;
+  /** Seconds of silence before the first sound (informational, helps line tracks up). */
+  lead: number;
+  origin: 'rec' | 'upload' | 'beat';
 }
+
+export const MAX_NUDGE = 5; // seconds either way
 
 /** Slot 0 = the single plain vocal track, slots 1-5 = backing tracks. */
 export const SLOT_COUNT = 6;
@@ -44,7 +51,10 @@ async function run<T>(mode: IDBTransactionMode, fn: (s: IDBObjectStore) => IDBRe
 export async function loadSession(): Promise<Slots> {
   try {
     const saved = await run<Slots | undefined>('readonly', (s) => s.get(KEY));
-    if (Array.isArray(saved) && saved.length === SLOT_COUNT) return saved;
+    if (Array.isArray(saved) && saved.length === SLOT_COUNT) {
+      // sessions saved before nudging existed have no offset: treat them as 0
+      return saved.map((t) => (t ? { ...t, offset: t.offset ?? 0, lead: t.lead ?? 0, origin: t.origin ?? (t.kind === 'vocal' ? 'rec' : 'upload') } : null));
+    }
   } catch { /* storage blocked — start empty */ }
   return emptySlots();
 }

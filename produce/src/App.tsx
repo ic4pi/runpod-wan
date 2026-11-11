@@ -8,10 +8,11 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { clearSession, emptySlots, loadSession, saveSession, type Slots, type Track } from '@/lib/store';
-import { durationOf, forget, forgetAll, mixdown, play, type Player } from '@/lib/audio';
+import { MAX_NUDGE, clearSession, emptySlots, loadSession, saveSession, type Slots, type Track } from '@/lib/store';
+import { forget, forgetAll, inspect, mixdown, play, type Player } from '@/lib/audio';
 import { formatDuration } from '@/lib/audio/wav';
 import { shareOrDownload } from '@/lib/audio/export';
+import { BeatMaker } from '@/components/BeatMaker';
 
 const newId = () => crypto.randomUUID();
 
@@ -61,6 +62,25 @@ export default function App() {
   const patch = (i: number, p: Partial<Track>) =>
     setSlots((s) => { const n = [...s]; const t = n[i]; if (t) n[i] = { ...t, ...p }; return n; });
 
+  /** Moving a track while it plays restarts playback so you hear the new timing. */
+  const restartIfPlaying = () => { if (player.current) setTimeout(() => { void startPlayback(); }, 60); };
+  const nudgeTo = (i: number, seconds: number) => patch(i, { offset: Math.max(-MAX_NUDGE, Math.min(MAX_NUDGE, Math.round(seconds * 1000) / 1000)) });
+  const nudgeBy = (i: number, delta: number) => { nudgeTo(i, (slotsRef.current[i]?.offset ?? 0) + delta); restartIfPlaying(); };
+
+  const uploads = slots.filter((t): t is Track => !!t && t.origin === 'upload');
+  const lengths = uploads.map((t) => t.duration);
+  const lengthMismatch = uploads.length >= 2 && Math.max(...lengths) - Math.min(...lengths) > 0.05;
+  const fmtMs = (sec: number) => `${sec < 0 ? '\u2212' : '+'}${Math.round(Math.abs(sec) * 1000)} ms`;
+
+  /** The beat maker hands over a finished beat; it takes the first empty backing slot. */
+  const addBeat = (blob: Blob, name: string, duration: number) => {
+    const free = slotsRef.current.findIndex((t, i) => i > 0 && !t);
+    if (free < 0) return;
+    stopPlayback();
+    setTrack(free, { id: newId(), name, kind: 'backing', blob, duration, volume: 0.8, pan: 0, offset: 0, lead: 0, origin: 'beat' });
+  };
+  const hasFreeBacking = slots.some((t, i) => i > 0 && !t);
+
   const remove = (i: number) => {
     const t = slots[i];
     if (t) forget(t.id);
@@ -70,11 +90,11 @@ export default function App() {
 
   const addFile = async (i: number, file: File) => {
     try {
-      const duration = await durationOf(file);
+      const { duration, lead } = await inspect(file);
       stopPlayback();
       setTrack(i, {
         id: newId(), name: file.name.replace(/\.[^.]+$/, ''), kind: 'backing',
-        blob: file, duration, volume: 0.8, pan: 0,
+        blob: file, duration, volume: 0.8, pan: 0, offset: 0, lead, origin: 'upload',
       });
     } catch {
       toast.error('That file is not audio this device can read');
@@ -94,10 +114,10 @@ export default function App() {
         setRecording(false);
         const blob = new Blob(chunks, { type: rec.mimeType });
         try {
-          const duration = await durationOf(blob);
+          const { duration, lead } = await inspect(blob);
           const old = slotsRef.current[0];
           if (old) forget(old.id);
-          setTrack(0, { id: newId(), name: 'Vocal', kind: 'vocal', blob, duration, volume: 1, pan: 0 });
+          setTrack(0, { id: newId(), name: 'Vocal', kind: 'vocal', blob, duration, volume: 1, pan: 0, offset: 0, lead, origin: 'rec' });
         } catch {
           toast.error('Recording could not be read');
         }
@@ -150,6 +170,16 @@ export default function App() {
           Record a vocal, add up to 5 backing tracks, set levels, save the mixdown. One project at a time.
         </p>
 
+        <BeatMaker canAdd={hasFreeBacking} onAdd={addBeat} onPreviewStart={stopPlayback} startOpen={!slots.slice(1).some(Boolean)} />
+
+        {lengthMismatch && (
+          <p role="status" className="mt-4 border border-primary/40 bg-primary/5 p-3 text-sm text-foreground">
+            Your uploaded tracks are different lengths ({Math.min(...lengths).toFixed(1)}s to {Math.max(...lengths).toFixed(1)}s).
+            Tracks exported from one project are normally exactly the same length. If one was trimmed at the start,
+            it will play too early. Use <strong>Nudge</strong> on that track to line it up, then press Play.
+          </p>
+        )}
+
         <ul className="mt-6 space-y-3">
           {slots.map((t, i) => (
             <li key={i} className="border border-border bg-card p-4">
@@ -186,6 +216,21 @@ export default function App() {
                   <div>
                     <p className="mb-2 font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground">Pan</p>
                     <Slider min={-1} max={1} step={0.02} value={[t.pan]} onValueChange={([v]) => patch(i, { pan: v })} />
+                  </div>
+                </div>
+              )}
+              {t && (
+                <div className="mt-4">
+                  <div className="mb-2 flex flex-wrap items-center justify-between gap-x-3 font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
+                    <span>Nudge {fmtMs(t.offset)}</span>
+                    <span>{t.lead > 0.05 ? `first sound at ${t.lead.toFixed(2)}s` : 'starts right away'}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Button size="sm" variant="secondary" aria-label={`Move track ${i + 1} earlier by 10 milliseconds`} onClick={() => nudgeBy(i, -0.01)}>{'\u2212'}10</Button>
+                    <Slider min={-2000} max={2000} step={5} value={[Math.round(t.offset * 1000)]} aria-label={`Nudge track ${i + 1}`}
+                      onValueChange={([v]) => nudgeTo(i, v / 1000)} onValueCommit={() => restartIfPlaying()} />
+                    <Button size="sm" variant="secondary" aria-label={`Move track ${i + 1} later by 10 milliseconds`} onClick={() => nudgeBy(i, 0.01)}>+10</Button>
+                    <Button size="sm" variant="ghost" disabled={t.offset === 0} onClick={() => { nudgeTo(i, 0); restartIfPlaying(); }}>Reset</Button>
                   </div>
                 </div>
               )}

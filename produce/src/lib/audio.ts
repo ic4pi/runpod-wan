@@ -18,9 +18,28 @@ export async function decode(track: Pick<Track, 'id' | 'blob'>): Promise<AudioBu
 export const forget = (id: string) => cache.delete(id);
 export const forgetAll = () => cache.clear();
 
-export async function durationOf(blob: Blob): Promise<number> {
+/** Seconds of near-silence before the first real sound (below about -48 dB). */
+export function leadingSilence(buf: AudioBuffer, threshold = 0.004): number {
+  let first = buf.length;
+  for (let c = 0; c < buf.numberOfChannels; c++) {
+    const d = buf.getChannelData(c);
+    for (let i = 0; i < first; i++) if (Math.abs(d[i]) > threshold) { first = i; break; }
+  }
+  return first >= buf.length ? 0 : first / buf.sampleRate;
+}
+
+export async function inspect(blob: Blob): Promise<{ duration: number; lead: number }> {
   const buf = await getCtx().decodeAudioData(await blob.arrayBuffer());
-  return buf.duration;
+  return { duration: buf.duration, lead: leadingSilence(buf) };
+}
+
+/** Where a track ends on the shared timeline once it is nudged. */
+export const endOf = (t: Pick<Track, 'offset' | 'duration'>) => Math.max(0, t.offset) + t.duration - Math.max(0, -t.offset);
+
+/** Start a source `when` seconds from now, moved by `offset` (negative skips into the audio). */
+export function startNudged(src: AudioBufferSourceNode, when: number, offset: number) {
+  if (offset >= 0) src.start(when + offset);
+  else src.start(when, -offset);
 }
 
 /** Live preview: all tracks start together; volume/pan can be changed while playing. */
@@ -56,7 +75,7 @@ export async function play(slots: Slots, skipSlot?: number): Promise<Player> {
     nodes.set(t.id, { gain, pan });
     remaining++;
     src.onended = () => { if (--remaining === 0) resolveEnd(); };
-    src.start(startAt);
+    startNudged(src, startAt, t.offset ?? 0);
     sources.push(src);
   });
   if (remaining === 0) resolveEnd();
@@ -81,7 +100,7 @@ export async function mixdown(slots: Slots): Promise<Blob> {
   if (!tracks.length) throw new Error('Nothing to mix');
   const buffers = await Promise.all(tracks.map(decode));
   const sampleRate = 44100;
-  const length = Math.ceil(Math.max(...buffers.map((b) => b.duration)) * sampleRate);
+  const length = Math.ceil(Math.max(...tracks.map((t) => endOf({ offset: t.offset ?? 0, duration: t.duration }))) * sampleRate);
   const off = new OfflineAudioContext(2, length, sampleRate);
   tracks.forEach((t, i) => {
     const src = off.createBufferSource();
@@ -91,7 +110,7 @@ export async function mixdown(slots: Slots): Promise<Blob> {
     const pan = off.createStereoPanner();
     pan.pan.value = t.pan;
     src.connect(gain).connect(pan).connect(off.destination);
-    src.start(0);
+    startNudged(src, 0, t.offset ?? 0);
   });
   const out = await off.startRendering();
   let peak = 0;

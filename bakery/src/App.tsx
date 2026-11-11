@@ -46,10 +46,17 @@ export default function App() {
     if (added.length) { stale(); setStems((s) => [...s, ...added.slice(0, Math.max(0, room))]); }
   };
 
+  const nudge = (id: string, delta: number) => {
+    setStems((p) => p.map((x) => (x.id === id ? { ...x, offset: Math.max(-5, Math.min(5, Math.round((x.offset + delta) * 1000) / 1000)) } : x)));
+    stale();
+  };
+  const lengths = stems.map((s) => s.buffer.duration);
+  const lengthMismatch = stems.length >= 2 && Math.max(...lengths) - Math.min(...lengths) > 0.05;
+
   const mixAndMaster = async () => {
     stale(); setMixing(true);
     try {
-      setMaster(await mixStems(stems.map((s) => ({ name: s.name, buffer: s.buffer, role: s.role })), template, levels));
+      setMaster(await mixStems(stems.map((s) => ({ name: s.name, buffer: s.buffer, role: s.role, offset: s.offset })), template, levels));
     } catch { toast.error('Mix failed. Try fewer or shorter stems.'); }
     finally { setMixing(false); }
   };
@@ -136,13 +143,35 @@ export default function App() {
               onChange={(e) => { void addFiles(e.target.files); e.target.value = ''; }} />
           </label>
 
+          {lengthMismatch && (
+            <p role="status" className="mt-3 border border-primary/40 bg-primary/5 p-3 text-sm">
+              Your stems are different lengths ({Math.min(...lengths).toFixed(1)}s to {Math.max(...lengths).toFixed(1)}s). Stems exported from one project
+              are normally exactly the same length. If one was trimmed at the start it will play too early. Use <strong>Nudge</strong> to line it up.
+            </p>
+          )}
+
           {stems.length > 0 && (
             <ul className="mt-3 divide-y divide-border border border-border">
               {stems.map((s) => (
                 <li key={s.id} className="flex items-center gap-3 px-4 py-3">
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm">{s.name}</p>
-                    <p className="font-mono text-[10px] uppercase tracking-[0.12em] text-muted-foreground">{formatBytes(s.size)} · {s.buffer.duration.toFixed(1)}s</p>
+                    <p className="font-mono text-[10px] uppercase tracking-[0.12em] text-muted-foreground">
+                      {formatBytes(s.size)} · {s.buffer.duration.toFixed(1)}s · {s.lead > 0.05 ? `first sound ${s.lead.toFixed(2)}s` : 'starts right away'}
+                    </p>
+                    <div className="mt-1 flex items-center gap-1 font-mono text-[10px] uppercase tracking-[0.12em] text-muted-foreground">
+                      <span className="mr-1">Nudge</span>
+                      {[-100, -10].map((ms) => (
+                        <button key={ms} type="button" aria-label={`Move ${s.name} ${Math.abs(ms)} milliseconds earlier`} onClick={() => nudge(s.id, ms / 1000)}
+                          className="min-h-9 border border-border px-2 hover:text-foreground">{'\u2212'}{Math.abs(ms)}</button>
+                      ))}
+                      <span aria-label={`${s.name} nudge`} className="min-w-16 text-center text-foreground">{s.offset < 0 ? '\u2212' : '+'}{Math.round(Math.abs(s.offset) * 1000)} ms</span>
+                      {[10, 100].map((ms) => (
+                        <button key={ms} type="button" aria-label={`Move ${s.name} ${ms} milliseconds later`} onClick={() => nudge(s.id, ms / 1000)}
+                          className="min-h-9 border border-border px-2 hover:text-foreground">+{ms}</button>
+                      ))}
+                      <button type="button" disabled={s.offset === 0} onClick={() => nudge(s.id, -s.offset)} className="min-h-9 px-2 hover:text-foreground disabled:opacity-30">Reset</button>
+                    </div>
                   </div>
                   <div className="flex border border-border">
                     {ROLES.map((r) => (

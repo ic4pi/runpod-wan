@@ -283,12 +283,15 @@ export interface StemInput {
   name: string;
   buffer: AudioBuffer;
   role: 'voice' | 'beat' | 'bass';
+  /** seconds the stem is moved: + plays later, - plays earlier (skips into the audio) */
+  offset?: number;
 }
 
 /** Full multi-stem mixdown through the template's buses + master. */
 export async function mixStems(stems: StemInput[], template: GenreTemplate, levels: Levels): Promise<AudioBuffer> {
   const sr = 44100;
-  const dur = Math.max(...stems.map((s) => s.buffer.duration));
+  const endOf = (s: StemInput) => Math.max(0, s.offset ?? 0) + s.buffer.duration - Math.max(0, -(s.offset ?? 0));
+  const dur = Math.max(...stems.map(endOf));
   const offline = new OfflineAudioContext(2, Math.ceil(dur * sr), sr);
   const masterBus = offline.createGain();
 
@@ -303,7 +306,8 @@ export async function mixStems(stems: StemInput[], template: GenreTemplate, leve
       node = buildBusChain(offline, src, stem.role === 'bass' ? template.bass : template.beat, analysis);
     }
     node.connect(masterBus);
-    src.start();
+    const off = stem.offset ?? 0;
+    if (off >= 0) src.start(off); else src.start(0, -off);
   }
 
   finishMaster(offline, masterBus, template);
