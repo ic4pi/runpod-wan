@@ -29,8 +29,8 @@
 ```
 produce/           (FREE hub — main app)
 sprouts/           (PAID module — advanced vocals)
-beet/              (PAID module — synths, in progress)
-bakery/            (PAID module — mixing/mastering, planned)
+beet/              (PAID module — synth and drums)
+bakery/            (PAID module — mixing/mastering)
 diced/             (PAID module — sampler/loops, planned)
 ```
 
@@ -102,20 +102,21 @@ npm run build
 
 ## Deployment
 
-**Production:** Vercel monorepo deployment
-- Produce hub serves at `/` (primary app)
-- Modules accessible via routing/UI
-- Free tier data stored in IndexedDB (on-device)
-- Paid modules gated by licensing logic
+**Production:** Vercel, one project per app, all built from this repo's `main` branch.
+
+| Vercel project | Root directory | Access |
+|---|---|---|
+| `produce` | `produce` | Public (free hub) |
+| `sprouts` | `sprouts` | Private until accounts and paywall exist |
+| `bakery` | `bakery` | Private until accounts and paywall exist |
+| `beet` | `beet` | Private until accounts and paywall exist |
+
+Each app has its own `vercel.json` (security headers, caching). There is no root `vercel.json`: Vercel rejects multi-project config there.
+Pushes to `main` deploy to production; other branches get preview deployments.
 
 ```bash
-# Deploy to production
-git push github main
+cd <app> && npm ci && npm run build   # same build Vercel runs
 ```
-
-Vercel auto-deploys on main branch push. See `vercel.json` for build config.
-
----
 
 ## Pricing Model
 

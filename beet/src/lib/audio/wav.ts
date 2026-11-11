@@ -35,7 +35,8 @@ export function audioBufferToWav(buffer: AudioBuffer): Blob {
   for (let i = 0; i < length; i++) {
     for (let c = 0; c < numCh; c++) {
       const s = Math.max(-1, Math.min(1, channels[c][i]));
-      view.setInt16(offset, s < 0 ? s * 0x8000 : s * 0x7fff, true);
+      // symmetric scaling — +1.0 maps to +32767, -1.0 to -32767, no DC bias
+      view.setInt16(offset, Math.round(s * 0x7fff), true);
       offset += 2;
     }
   }

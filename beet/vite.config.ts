@@ -2,21 +2,19 @@ import path from "path"
 import react from "@vitejs/plugin-react"
 import { defineConfig } from "vite"
 import { VitePWA } from "vite-plugin-pwa"
-import { inspectAttr } from 'kimi-plugin-inspect-react'
 
 // https://vite.dev/config/
 export default defineConfig({
   base: './',
   plugins: [
-    inspectAttr(),
     react(),
     VitePWA({
       registerType: 'autoUpdate',
       includeAssets: ['icons/*.png'],
       manifest: {
-        name: 'Levels — Pocket Studio',
-        short_name: 'Levels',
-        description: 'A pocket recording studio. Pick a sound, sing, get a mixed master back.',
+        name: 'Beet — Synth & Drums',
+        short_name: 'Beet',
+        description: 'Make beats with synths and drums.',
         theme_color: '#0a0a0f',
         background_color: '#0a0a0f',
         display: 'standalone',

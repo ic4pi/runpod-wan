@@ -1,0 +1,196 @@
+import { useRef, useState } from 'react';
+import { toast } from 'sonner';
+import { Download, Loader2, Play, RotateCcw, Share2, Square, Upload, X } from 'lucide-react';
+import { Slider } from '@/components/ui/slider';
+import { mixStems } from '@/lib/audio/render';
+import { audioBufferToWav, formatBytes } from '@/lib/audio/wav';
+import { shareOrDownload } from '@/lib/audio/export';
+import { importFiles, type Role, type Stem } from '@/lib/importer';
+import { DEFAULT_TEMPLATE_ID, LEVEL_DEFS, NEUTRAL_LEVELS, TEMPLATES, getTemplate, type Levels } from '@/lib/templates';
+import { Toaster } from '@/components/ui/sonner';
+
+const MAX_STEMS = 8;
+const ROLES: { id: Role; label: string }[] = [
+  { id: 'voice', label: 'Vocal' },
+  { id: 'beat', label: 'Beat' },
+  { id: 'bass', label: 'Bass' },
+];
+
+const btn = 'flex min-h-12 items-center justify-center gap-2 font-mono text-xs uppercase tracking-[0.15em] focus-visible:outline-2 focus-visible:outline-primary';
+
+export default function App() {
+  const [templateId, setTemplateId] = useState(DEFAULT_TEMPLATE_ID);
+  const [levels, setLevels] = useState<Levels>(NEUTRAL_LEVELS);
+  const [stems, setStems] = useState<Stem[]>([]);
+  const [master, setMaster] = useState<AudioBuffer | null>(null);
+  const [mixing, setMixing] = useState(false);
+  const [playing, setPlaying] = useState(false);
+  const ctxRef = useRef<AudioContext | null>(null);
+  const srcRef = useRef<AudioBufferSourceNode | null>(null);
+  const template = getTemplate(templateId);
+  const neutral = LEVEL_DEFS.every((d) => levels[d.key] === 1);
+
+  const stop = () => {
+    const s = srcRef.current;
+    if (s) { s.onended = null; try { s.stop(); } catch { /* already stopped */ } s.disconnect(); }
+    srcRef.current = null; setPlaying(false);
+  };
+  const stale = () => { stop(); setMaster(null); };
+
+  const addFiles = async (list: FileList | null) => {
+    if (!list?.length) return;
+    const { stems: added, skipped } = await importFiles([...list]);
+    const room = MAX_STEMS - stems.length;
+    if (added.length > room) toast.error(`Up to ${MAX_STEMS} stems. Extra files were not added.`);
+    if (skipped.length) toast.error(`Skipped: ${skipped.join(', ')}`);
+    if (added.length) { stale(); setStems((s) => [...s, ...added.slice(0, Math.max(0, room))]); }
+  };
+
+  const mixAndMaster = async () => {
+    stale(); setMixing(true);
+    try {
+      setMaster(await mixStems(stems.map((s) => ({ name: s.name, buffer: s.buffer, role: s.role })), template, levels));
+    } catch { toast.error('Mix failed. Try fewer or shorter stems.'); }
+    finally { setMixing(false); }
+  };
+
+  const togglePlay = async () => {
+    if (!master) return;
+    if (playing) return stop();
+    const ctx = (ctxRef.current ??= new (window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)());
+    if (ctx.state === 'suspended') await ctx.resume();
+    const src = ctx.createBufferSource();
+    src.buffer = master; src.connect(ctx.destination);
+    src.onended = () => { srcRef.current = null; setPlaying(false); };
+    srcRef.current = src; setPlaying(true); src.start();
+  };
+
+  const filename = `bakery-${template.id}-master.wav`;
+  const save = (share: boolean) => {
+    if (!master) return;
+    const blob = audioBufferToWav(master);
+    if (share) return void shareOrDownload(blob, filename, 'Bakery master');
+    const url = URL.createObjectURL(blob);
+    Object.assign(document.createElement('a'), { href: url, download: filename }).click();
+    setTimeout(() => URL.revokeObjectURL(url), 5000);
+  };
+
+  return (
+    <div className="min-h-dvh bg-background text-foreground">
+      <div className="mx-auto flex w-full max-w-2xl flex-col gap-8 px-5 pb-16 pt-6">
+        <header>
+          <h1 className="text-xl font-medium tracking-tight">
+            BAKERY<span className="text-primary">.</span>
+            <span className="ml-2 align-middle font-mono text-[9px] uppercase tracking-[0.25em] text-muted-foreground/60">Mix &amp; Master</span>
+          </h1>
+          <p className="mt-3 text-sm text-muted-foreground">Pick a sound, drop your stems, get a finished master.</p>
+        </header>
+
+        {/* 1. Template */}
+        <section>
+          <p className="mb-3 font-mono text-[11px] uppercase tracking-[0.25em] text-muted-foreground">1 · Sound</p>
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+            {TEMPLATES.map((t) => (
+              <button key={t.id} onClick={() => { setTemplateId(t.id); stale(); }} aria-pressed={t.id === templateId}
+                className={`${btn} min-h-14 flex-col border ${t.id === templateId ? 'border-primary bg-primary/10 text-foreground' : 'border-border text-muted-foreground hover:text-foreground'}`}>
+                <span className="text-sm normal-case tracking-normal">{t.name}</span>
+              </button>
+            ))}
+          </div>
+          <p className="mt-3 text-sm text-muted-foreground">{template.blurb}</p>
+
+          <div className="mt-4 border border-border">
+            <div className="flex items-center justify-between border-b border-border px-4 py-2">
+              <span className="font-mono text-[11px] uppercase tracking-[0.25em] text-muted-foreground">Fine-tune</span>
+              <button onClick={() => { setLevels(NEUTRAL_LEVELS); stale(); }} disabled={neutral}
+                className="flex min-h-11 items-center gap-1.5 px-2 font-mono text-[11px] uppercase tracking-[0.15em] text-muted-foreground hover:text-foreground disabled:opacity-30">
+                <RotateCcw className="h-3.5 w-3.5" /> Reset
+              </button>
+            </div>
+            <div className="grid grid-cols-2 gap-x-6 gap-y-5 p-4 sm:grid-cols-4">
+              {LEVEL_DEFS.map((d) => {
+                const off = Math.round((levels[d.key] - 1) * 100);
+                return (
+                  <div key={d.key}>
+                    <div className="mb-2 flex justify-between font-mono text-[10px] uppercase tracking-[0.15em]">
+                      <span>{d.name}</span>
+                      <span className={off === 0 ? 'text-muted-foreground/40' : 'text-primary'}>{off === 0 ? '—' : off < 0 ? d.less : d.more}</span>
+                    </div>
+                    <Slider min={0} max={2} step={0.05} value={[levels[d.key]]} aria-label={d.name}
+                      onValueChange={([v]) => { setLevels({ ...levels, [d.key]: v }); stale(); }} />
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </section>
+
+        {/* 2. Stems */}
+        <section>
+          <p className="mb-3 font-mono text-[11px] uppercase tracking-[0.25em] text-muted-foreground">2 · Stems</p>
+          <label className="flex min-h-28 cursor-pointer flex-col items-center justify-center gap-2 border border-dashed border-border px-6 py-8 text-center hover:border-foreground/40">
+            <Upload className="h-5 w-5 text-muted-foreground" />
+            <span className="text-sm text-muted-foreground">Tap to choose files, or a Produce session .zip</span>
+            <span className="font-mono text-[10px] uppercase tracking-[0.15em] text-muted-foreground/60">WAV · MP3 · M4A · OGG · FLAC · up to {MAX_STEMS} stems</span>
+            <input type="file" multiple accept="audio/*,.zip,application/zip" className="sr-only"
+              onChange={(e) => { void addFiles(e.target.files); e.target.value = ''; }} />
+          </label>
+
+          {stems.length > 0 && (
+            <ul className="mt-3 divide-y divide-border border border-border">
+              {stems.map((s) => (
+                <li key={s.id} className="flex items-center gap-3 px-4 py-3">
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm">{s.name}</p>
+                    <p className="font-mono text-[10px] uppercase tracking-[0.12em] text-muted-foreground">{formatBytes(s.size)} · {s.buffer.duration.toFixed(1)}s</p>
+                  </div>
+                  <div className="flex border border-border">
+                    {ROLES.map((r) => (
+                      <button key={r.id} aria-pressed={s.role === r.id}
+                        onClick={() => { setStems((p) => p.map((x) => (x.id === s.id ? { ...x, role: r.id } : x))); stale(); }}
+                        className={`min-h-11 px-3 font-mono text-[11px] uppercase tracking-[0.1em] ${s.role === r.id ? 'bg-foreground text-background' : 'text-muted-foreground hover:text-foreground'}`}>
+                        {r.label}
+                      </button>
+                    ))}
+                  </div>
+                  <button aria-label={`Remove ${s.name}`} onClick={() => { setStems((p) => p.filter((x) => x.id !== s.id)); stale(); }}
+                    className="flex h-11 w-11 items-center justify-center text-muted-foreground hover:text-foreground"><X className="h-4 w-4" /></button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+
+        {/* 3. Mix & master */}
+        <section>
+          <p className="mb-3 font-mono text-[11px] uppercase tracking-[0.25em] text-muted-foreground">3 · Master</p>
+          <button onClick={mixAndMaster} disabled={!stems.length || mixing}
+            className={`${btn} min-h-14 w-full bg-foreground text-sm text-background hover:opacity-90 disabled:opacity-40`}>
+            {mixing && <Loader2 className="h-5 w-5 animate-spin" />}
+            {mixing ? 'Mixing and mastering…' : master ? 'Mix again' : 'Mix & Master'}
+          </button>
+
+          {master && (
+            <div className="mt-4 border border-primary/50 bg-primary/5">
+              <div className="flex items-center gap-3 px-4 py-4">
+                <button onClick={togglePlay} aria-label={playing ? 'Stop master' : 'Play master'}
+                  className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-foreground text-background">
+                  {playing ? <Square className="h-4 w-4 fill-current" /> : <Play className="ml-0.5 h-5 w-5 fill-current" />}
+                </button>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-medium">{template.name} master</p>
+                  <p className="font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground">Leveled · glued · limited to {template.master.ceilingDb} dB</p>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 divide-x divide-primary/30 border-t border-primary/30">
+                <button onClick={() => save(true)} className={`${btn} hover:bg-foreground/5`}><Share2 className="h-4 w-4" /> Share</button>
+                <button onClick={() => save(false)} className={`${btn} hover:bg-foreground/5`}><Download className="h-4 w-4" /> WAV</button>
+              </div>
+            </div>
+          )}
+        </section>
+      </div>
+      <Toaster theme="dark" position="top-center" />
+    </div>
+  );
+}

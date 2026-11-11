@@ -1,24 +1,15 @@
-# Levels — Pocket Studio
+# Produce (Free Hub)
 
-A mobile-first PWA recording studio for artists without a studio. Record vocals
-on a phone, pick a sound template, and get a mixed, limited master back —
-entirely on-device via the Web Audio API. No servers, no accounts, no AI
-generation.
+The free, minimal Produce app. Runs entirely on-device (Web Audio API), no accounts.
 
-## Sections
-- **Booth** — mic capture (dry), live light-chain monitoring, reactive halo
-  visualizer, auto-mix on stop, dry/mixed A/B, keep/share/WAV export.
-- **Mixdown** — stem upload (up to 8), filename-based role detection
-  (vocal/beat/bass), per-role buses, glue + limiter master, WAV out.
-- **Vault** — takes persisted on-device in IndexedDB; play/share/download/delete.
+**Included**
+- 1 plain vocal track (record) + 5 backing tracks (upload)
+- Volume and pan per track, live preview
+- One project at a time: starting a new project deletes the current one
+- Output: a plain mixdown WAV, shared or downloaded from the app (a simple sum, no EQ, compression or limiting)
 
-## Tech
-React + TypeScript + Vite + Tailwind. Audio: Web Audio API (live chain +
-OfflineAudioContext render: HPF, template EQ, analysis-scaled de-ess, dynamics,
-tanh saturation, convolver space, glue comp, limiter, peak normalization to
-template ceiling). PWA: vite-plugin-pwa (network-first HTML, precached assets,
-cache-first fonts), wake lock during recording, Web Share API with download
-fallback.
+**Not included (paid modules)**
+Effects, templates, auto-mix, layers/takes vault (Sprouts), synths (Beet), mixing and mastering (Bakery), sampler (Diced).
 
 ## Run
-npm run dev — develop · npm run build && npm run preview — production
+`npm ci && npm run dev` · `npm run build`

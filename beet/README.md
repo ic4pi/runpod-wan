@@ -1,24 +1,13 @@
-# Levels — Pocket Studio
+# Beet — synth and drums
 
-A mobile-first PWA recording studio for artists without a studio. Record vocals
-on a phone, pick a sound template, and get a mixed, limited master back —
-entirely on-device via the Web Audio API. No servers, no accounts, no AI
-generation.
+Make beats in the browser. 5 sound engines, 51 presets, up to 8 tracks.
 
-## Sections
-- **Booth** — mic capture (dry), live light-chain monitoring, reactive halo
-  visualizer, auto-mix on stop, dry/mixed A/B, keep/share/WAV export.
-- **Mixdown** — stem upload (up to 8), filename-based role detection
-  (vocal/beat/bass), per-role buses, glue + limiter master, WAV out.
-- **Vault** — takes persisted on-device in IndexedDB; play/share/download/delete.
+- **Sound:** Warm, FM Bell, Analog, Chiptune and a Drum Kit engine (plain Web Audio). Presets are level-matched.
+- **Tracks:** volume, pan, mute, solo, reverb, delay, "Feel" (human timing), and an "Enters at bar" setting. Bars: 1, 2, 4, 8 or 16. BPM 60 to 180.
+- **Editing:** draw on the grid, or use Edit notes to change a note's length and velocity. Copy a bar onto another, duplicate a track, undo and redo (Ctrl/Cmd+Z).
+- **Input:** tap the grid, the computer keyboard (A to L, Z/X octave, Space play), or a MIDI keyboard or pad (Web MIDI). Rec records into the loop.
+- **Export:** Mixdown WAV, MIDI file (.mid), or a Produce session zip (`stems/*.wav` + `session.json`) that Bakery imports.
+- Live play and export share one code path, so stems line up with what you heard.
+- The session autosaves on this device (one project).
 
-## Tech
-React + TypeScript + Vite + Tailwind. Audio: Web Audio API (live chain +
-OfflineAudioContext render: HPF, template EQ, analysis-scaled de-ess, dynamics,
-tanh saturation, convolver space, glue comp, limiter, peak normalization to
-template ceiling). PWA: vite-plugin-pwa (network-first HTML, precached assets,
-cache-first fonts), wake lock during recording, Web Share API with download
-fallback.
-
-## Run
-npm run dev — develop · npm run build && npm run preview — production
+`npm ci && npm run dev` · `npm test` · `npm run build`
