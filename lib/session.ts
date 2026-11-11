@@ -11,10 +11,12 @@ function b64url(bytes: Uint8Array): string {
   return btoa(s).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 }
 
-function fromB64url(s: string): Uint8Array {
+function fromB64url(s: string): Uint8Array<ArrayBuffer> {
   const pad = s.length % 4 ? '='.repeat(4 - (s.length % 4)) : '';
   const bin = atob(s.replace(/-/g, '+').replace(/_/g, '/') + pad);
-  return Uint8Array.from(bin, (c) => c.charCodeAt(0));
+  const out = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+  return out;
 }
 
 async function key(secret: string, usage: KeyUsage[]): Promise<CryptoKey> {

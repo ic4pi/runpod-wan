@@ -26,7 +26,7 @@ export function defaultDeps(): Deps {
       STRIPE_WEBHOOK_SECRET: e.STRIPE_WEBHOOK_SECRET,
       SITE_URL: e.SITE_URL?.replace(/\/+$/, ''),
     },
-    fetch: (...a) => fetch(...a),
+    fetch: (input, init) => fetch(input, init),
     now: () => Date.now(),
   };
 }
