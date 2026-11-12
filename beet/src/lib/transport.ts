@@ -65,7 +65,7 @@ export class Transport {
       this.marks.push({ time: this.nextTime, step });
       if (this.marks.length > 64) this.marks.shift();
       for (const t of on) {
-        if (step < entryStep(t)) continue;
+        if (step < entryStep(s, t)) continue;
         const hits = t.notes.filter((n) => n.step === step);
         if (!hits.length) continue;
         const { engine, params, trim } = voiceOf(t.presetId);
