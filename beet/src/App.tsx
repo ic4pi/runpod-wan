@@ -5,6 +5,7 @@ import { Toaster } from '@/components/ui/sonner';
 import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
 import { PianoRoll, noteName, type Picked, type Tool } from '@/components/PianoRoll';
+import { FreePlay } from '@/components/FreePlay';
 import { DRUM_KEYS, PIANO_KEYS, useKeyboard } from '@/hooks/useKeyboard';
 import { useMidiInput } from '@/hooks/useMidiInput';
 import { Transport } from '@/lib/transport';
@@ -104,7 +105,7 @@ export default function App() {
     if (transport.playing) { transport.stop(); setPlaying(false); } else { transport.start(); setPlaying(true); }
   }, [transport]);
 
-  /** Play a pitch on the selected track (keyboard or MIDI), and record it if Rec is on. */
+  /** Play a pitch on the selected track (keyboard, free-play strip or MIDI), and record it if Rec is on. */
   const hit = (pitch: number, vel = 100) => {
     if (!track) return;
     transport.preview(track, pitch, vel);
@@ -333,6 +334,14 @@ export default function App() {
               onChange={(notes) => patch(track.id, { notes }, true)}
               onPick={setPicked}
               onPreview={(p) => transport.preview(track, p)}
+            />
+
+            <FreePlay
+              drum={drum}
+              base={base}
+              drums={DRUMS}
+              onOctave={(d) => track && !drum && setBases((b) => ({ ...b, [track.id]: Math.max(12, Math.min(96, base + d * 12)) }))}
+              onPlay={(p) => hit(p)}
             />
 
             <section className="flex flex-wrap items-center gap-3 font-mono text-[11px] uppercase tracking-[0.15em] text-muted-foreground">
