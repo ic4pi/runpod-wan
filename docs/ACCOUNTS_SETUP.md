@@ -9,6 +9,8 @@ Prices follow contribution to Grocery: Pastry $5.99, Beet $4.99, Sprouts $3.99. 
 Change them in `lib/modules.ts` (the server is the only source of prices).
 
 ## 1. Database (Supabase project `autobuild`)
+Easiest: paste `supabase/run-this-once.sql` into the Supabase SQL Editor and press Run. It does everything below in one go and is safe to repeat. (The two numbered files below are the same thing split in two.)
+
 Run `supabase/migrations/20261111000000_produce_entitlements.sql` once in the Supabase SQL editor.
 Then run `supabase/migrations/20261112000000_rename_bakery_to_pastry.sql` (it renames the Bakery value to Pastry; run both files, in order).
 The first file adds two tables: `produce_entitlements` (who owns what; customers can only read their own rows) and
