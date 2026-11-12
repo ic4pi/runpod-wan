@@ -19,6 +19,7 @@ import { DRUMS } from '@/lib/synth/engines';
 import { exportBundle, mixToWav, renderMix } from '@/lib/render';
 import { sessionToMidi } from '@/lib/midi';
 import { useSmk } from '@/lib/smk';
+import { DEMOS } from '@/lib/demos';
 import { shareOrDownload } from '@/lib/audio/export';
 
 const DRUM_ORDER = ['Kick', 'Snare', 'Clap', 'Closed Hat', 'Open Hat', 'Tom', 'Rim', 'Crash'].map((n) => DRUMS.find((d) => d.name === n)!.pitch);
@@ -38,7 +39,7 @@ const label = 'flex flex-col gap-1 font-mono text-[10px] uppercase tracking-[0.2
 const sigKey = (sig: TimeSig) => `${sig.beats}/${sig.unit}`;
 
 function download(blob: Blob, name: string) {
-  const url = URL.createObjectURL(blob);
+  const url = URL.createObjectURL(url);
   Object.assign(document.createElement('a'), { href: url, download: name }).click();
   setTimeout(() => URL.revokeObjectURL(url), 5000);
 }
@@ -189,6 +190,16 @@ export default function App() {
     sessionRef.current = s; setSession(s); setSelectedId(s.tracks[0].id); setBases({}); setPicked(null);
   };
 
+  const loadDemo = (id: string) => {
+    const demo = DEMOS.find((d) => d.id === id);
+    if (!demo) return;
+    if (!window.confirm(`Load the "${demo.name}" demo? This replaces your current project.`)) return;
+    transport.stop(); setPlaying(false);
+    const s = fitNotes(JSON.parse(JSON.stringify(demo.session)) as Session);
+    past.current = []; future.current = [];
+    sessionRef.current = s; setSession(s); setSelectedId(s.tracks[0].id); setBases({}); setPicked(null);
+  };
+
   const editNote = (p: Partial<Note>, record: boolean) => {
     if (!track || pickedNote < 0) return;
     const notes = track.notes.map((n, i) => (i === pickedNote ? { ...n, ...p } : n));
@@ -259,6 +270,13 @@ export default function App() {
           <span className="font-mono text-[10px] uppercase tracking-[0.15em] text-muted-foreground" aria-label="MIDI status">{midiLabel}</span>
           {smkLabel && <span className="font-mono text-[10px] uppercase tracking-[0.15em] text-primary" aria-label="Controller status">{smkLabel}</span>}
           <div className="ml-auto flex gap-2">
+            <label className="flex items-center gap-2 font-mono text-[11px] uppercase tracking-[0.15em] text-muted-foreground">
+              Demo
+              <select aria-label="Load demo" value="" className={field} onChange={(e) => { const v = e.target.value; e.target.value = ''; if (v) loadDemo(v); }}>
+                <option value="" disabled>Pick one…</option>
+                {DEMOS.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
+              </select>
+            </label>
             <Button variant="ghost" className="min-h-11" onClick={newProject}><FilePlus className="mr-2 h-4 w-4" /> New</Button>
           </div>
         </header>
