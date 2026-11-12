@@ -12,9 +12,9 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['icons/*.png'],
       manifest: {
-        name: 'Bakery — Mix & Master',
-        short_name: 'Bakery',
-        description: 'Mix and master your tracks.',
+        name: 'Grocery — Free Hub',
+        short_name: 'Grocery',
+        description: 'Record vocals. Mix with 5 backing tracks. Download.',
         theme_color: '#0a0a0f',
         background_color: '#0a0a0f',
         display: 'standalone',

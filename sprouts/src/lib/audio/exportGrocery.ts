@@ -1,16 +1,16 @@
 /**
- * Produce bundle export — the Sprouts → Produce handoff.
+ * Grocery bundle export — the Sprouts → Grocery handoff.
  * One ZIP: every stem as a strict-spec WAV (44.1kHz / 16-bit / stereo) plus
- * session.json in the Produce metadata shape, so Beet, Processed/Preserved,
- * or the Produce hub can rebuild the session with exact bar alignment.
+ * session.json in the Grocery metadata shape, so Beet, Processed/Preserved,
+ * or the Grocery hub can rebuild the session with exact bar alignment.
  */
 import JSZip from 'jszip';
 import { audioBufferToWav } from './wav';
 import { decodeBlob, mixLayers } from './render';
-import { buildProduceSession, produceSessionJson, type ProduceSession } from './produce';
+import { buildGrocerySession, grocerySessionJson, type GrocerySession } from './grocery';
 import type { GenreTemplate, Levels } from '../templates';
 
-export interface ProduceLayerExport {
+export interface GroceryLayerExport {
   role: string;
   blob: Blob;
   duration: number;
@@ -34,20 +34,20 @@ async function toSpecWav(buf: AudioBuffer): Promise<Blob> {
   return audioBufferToWav(rendered);
 }
 
-/** Build the full Produce bundle and return it as a downloadable Blob. */
-export async function exportProduceBundle(opts: {
+/** Build the full Grocery bundle and return it as a downloadable Blob. */
+export async function exportGroceryBundle(opts: {
   sessionName: string;
   bpm: number;
   template: GenreTemplate;
   levels: Levels;
-  layers: ProduceLayerExport[];
+  layers: GroceryLayerExport[];
   beat?: { buffer: AudioBuffer; name: string } | null;
-}): Promise<{ blob: Blob; session: ProduceSession }> {
+}): Promise<{ blob: Blob; session: GrocerySession }> {
   const { sessionName, bpm, template, levels, layers, beat } = opts;
   const zip = new JSZip();
 
-  // 1. Session metadata (alignment map for every Produce app)
-  const session = buildProduceSession({
+  // 1. Session metadata (alignment map for every Grocery app)
+  const session = buildGrocerySession({
     sessionName,
     bpm,
     templateId: template.id,
@@ -72,15 +72,15 @@ export async function exportProduceBundle(opts: {
     zip.file('stems/beat.wav', await toSpecWav(beat.buffer));
   }
 
-  zip.file('session.json', produceSessionJson(session));
+  zip.file('session.json', grocerySessionJson(session));
   zip.file('README.txt',
-`SPROUTS SESSION — Produce suite
+`SPROUTS SESSION — Grocery suite
 Session: ${sessionName}
 BPM: ${bpm} · Bars: ${session.barCount}
 Template: ${template.name}
 
 Stems are 44.1 kHz / 16-bit / stereo WAV.
-Import session.json + stems/ into Produce, Beet, or Processed/Preserved
+Import session.json + stems/ into Grocery, Beet, or Processed/Preserved
 to rebuild this session with bar-exact alignment.`);
 
   const blob = await zip.generateAsync({ type: 'blob', compression: 'STORE' });

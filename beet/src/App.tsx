@@ -341,7 +341,7 @@ export default function App() {
       <div className="fixed inset-x-0 bottom-0 border-t border-border bg-background/95 backdrop-blur-sm" style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
         <div className="mx-auto flex max-w-5xl gap-2 px-4 py-3">
           <Button className="flex-1" variant="secondary" disabled={!!busy} onClick={exportStems}>
-            <Package className="mr-2 h-4 w-4" /> {busy === 'stems' ? 'Rendering…' : 'Stems for Bakery'}
+            <Package className="mr-2 h-4 w-4" /> {busy === 'stems' ? 'Rendering…' : 'Stems for Pastry'}
           </Button>
           <Button className="flex-1" variant="secondary" disabled={!!busy} onClick={exportMidi}>
             <FileMusic className="mr-2 h-4 w-4" /> MIDI file

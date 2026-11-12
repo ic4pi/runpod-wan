@@ -59,7 +59,7 @@ export async function renderStem(s: Session, t: Track): Promise<AudioBuffer> {
 
 const safe = (n: string) => n.replace(/[^a-z0-9 _-]/gi, '').trim().replace(/\s+/g, '-') || 'track';
 
-/** Produce session bundle: stems/*.wav + session.json. Bakery and the Produce apps import this. */
+/** Grocery session bundle: stems/*.wav + session.json. Pastry and the Grocery apps import this. */
 export async function exportBundle(s: Session, sessionName = 'Beet session'): Promise<Blob> {
   const on = audible(s).filter((t) => t.notes.some((n) => n.step >= entryStep(t)));
   if (!on.length) throw new Error('Nothing to export. Add some notes first.');
@@ -77,9 +77,9 @@ export async function exportBundle(s: Session, sessionName = 'Beet session'): Pr
     });
   }
   zip.file('session.json', JSON.stringify({
-    suite: 'produce', app: 'beet', version: 1, sessionName, bpm: s.bpm, barCount: s.bars, templateId: '', createdAt: Date.now(), tracks,
+    suite: 'grocery', app: 'beet', version: 1, sessionName, bpm: s.bpm, barCount: s.bars, templateId: '', createdAt: Date.now(), tracks,
   }, null, 2));
-  zip.file('README.txt', `BEET SESSION (Produce suite)\nBPM ${s.bpm}, ${s.bars} bars. Stems are 44.1 kHz / 16-bit / stereo WAV, all starting at bar 1.\nImport this zip into Bakery or any Produce app.\n`);
+  zip.file('README.txt', `BEET SESSION (Grocery suite)\nBPM ${s.bpm}, ${s.bars} bars. Stems are 44.1 kHz / 16-bit / stereo WAV, all starting at bar 1.\nImport this zip into Pastry or any Grocery app.\n`);
   return zip.generateAsync({ type: 'blob', compression: 'STORE' });
 }
 

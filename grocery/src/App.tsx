@@ -137,7 +137,7 @@ export default function App() {
     try {
       stopPlayback();
       const wav = await mixdown(slots);
-      await shareOrDownload(wav, 'produce-mixdown.wav', 'Produce mixdown');
+      await shareOrDownload(wav, 'grocery-mixdown.wav', 'Grocery mixdown');
     } catch {
       toast.error('Mixdown failed');
     } finally {
@@ -158,7 +158,7 @@ export default function App() {
       <div className="mx-auto w-full max-w-2xl px-5 pb-32 pt-6">
         <header className="flex items-center justify-between">
           <h1 className="text-xl font-medium tracking-tight">
-            PRODUCE<span className="text-primary">.</span>
+            GROCERY<span className="text-primary">.</span>
             <span className="ml-2 align-middle font-mono text-[9px] uppercase tracking-[0.25em] text-muted-foreground/60">Free</span>
           </h1>
           <div className="flex items-center gap-1">

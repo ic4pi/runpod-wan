@@ -1,6 +1,6 @@
 // Builds every app and assembles one site:
-//   /            Produce (free hub)
-//   /bakery/     Bakery   } gated by middleware.ts
+//   /            Grocery (free hub)
+//   /pastry/     Pastry   } gated by middleware.ts
 //   /beet/       Beet     }
 //   /sprouts/    Sprouts  }
 //   /account/    sign in and buy
@@ -10,8 +10,8 @@ import { join } from 'node:path';
 
 const root = process.cwd();
 const apps = [
-  { dir: 'produce', mount: '' },
-  { dir: 'bakery', mount: 'bakery' },
+  { dir: 'grocery', mount: '' },
+  { dir: 'pastry', mount: 'pastry' },
   { dir: 'beet', mount: 'beet' },
   { dir: 'sprouts', mount: 'sprouts' },
 ];

@@ -72,11 +72,11 @@ export default function App() {
     srcRef.current = src; setPlaying(true); src.start();
   };
 
-  const filename = `bakery-${template.id}-master.wav`;
+  const filename = `pastry-${template.id}-master.wav`;
   const save = (share: boolean) => {
     if (!master) return;
     const blob = audioBufferToWav(master);
-    if (share) return void shareOrDownload(blob, filename, 'Bakery master');
+    if (share) return void shareOrDownload(blob, filename, 'Pastry master');
     const url = URL.createObjectURL(blob);
     Object.assign(document.createElement('a'), { href: url, download: filename }).click();
     setTimeout(() => URL.revokeObjectURL(url), 5000);
@@ -87,7 +87,7 @@ export default function App() {
       <div className="mx-auto flex w-full max-w-2xl flex-col gap-8 px-5 pb-16 pt-6">
         <header>
           <h1 className="text-xl font-medium tracking-tight">
-            BAKERY<span className="text-primary">.</span>
+            PASTRY<span className="text-primary">.</span>
             <span className="ml-2 align-middle font-mono text-[9px] uppercase tracking-[0.25em] text-muted-foreground/60">Mix &amp; Master</span>
           </h1>
           <p className="mt-3 text-sm text-muted-foreground">Pick a sound, drop your stems, get a finished master.</p>
@@ -137,7 +137,7 @@ export default function App() {
           <p className="mb-3 font-mono text-[11px] uppercase tracking-[0.25em] text-muted-foreground">2 · Stems</p>
           <label className="flex min-h-28 cursor-pointer flex-col items-center justify-center gap-2 border border-dashed border-border px-6 py-8 text-center hover:border-foreground/40">
             <Upload className="h-5 w-5 text-muted-foreground" />
-            <span className="text-sm text-muted-foreground">Tap to choose files, or a Produce session .zip</span>
+            <span className="text-sm text-muted-foreground">Tap to choose files, or a Grocery session .zip</span>
             <span className="font-mono text-[10px] uppercase tracking-[0.15em] text-muted-foreground/60">WAV · MP3 · M4A · OGG · FLAC · up to {MAX_STEMS} stems</span>
             <input type="file" multiple accept="audio/*,.zip,application/zip" className="sr-only"
               onChange={(e) => { void addFiles(e.target.files); e.target.value = ''; }} />

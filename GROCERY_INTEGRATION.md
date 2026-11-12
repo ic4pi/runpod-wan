@@ -1,4 +1,4 @@
-# Produce Ecosystem Integration Guide
+# Grocery Ecosystem Integration Guide
 
 **For builders of Sprouts (vocals) and Processed/Preserved (mixer)**
 
@@ -6,7 +6,7 @@
 
 ## Overview
 
-**Produce** is a three-app music creation suite:
+**Grocery** is a three-app music creation suite:
 
 - 🍠 **Beet** — Synth + drum composition (done)
 - 🌱 **Sprouts** — Vocal recording + SFX (in development)
@@ -173,7 +173,7 @@ Final Output (MP3 / WAV)
 **Recommended directory structure:**
 
 ```
-produce/
+grocery/
 ├── beet/              # Synth app (live)
 │   ├── app/
 │   ├── docs/
@@ -186,7 +186,7 @@ produce/
 │   ├── app/
 │   ├── docs/
 │   └── README.md
-├── PRODUCE_INTEGRATION.md  # this file
+├── GROCERY_INTEGRATION.md  # this file
 └── README.md          # umbrella guide
 ```
 
@@ -227,7 +227,7 @@ produce/
 
 ## Questions?
 
-Contact the Beet team or see `PRODUCE_INTEGRATION.md` in the main produce/ repo.
+Contact the Beet team or see `GROCERY_INTEGRATION.md` in the main grocery/ repo.
 
 Happy building! 🍠🌱🧀
 

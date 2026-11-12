@@ -23,6 +23,7 @@ export const MAX_NUDGE = 5; // seconds either way
 export const SLOT_COUNT = 6;
 export type Slots = (Track | null)[];
 
+// The database name predates the rename to Grocery. Keep it so people's saved project still loads.
 const DB = 'produce-free';
 const STORE = 'session';
 const KEY = 'current';

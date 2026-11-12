@@ -8,7 +8,7 @@ export async function createCheckout(d: Deps, m: ModuleInfo & { priceCents: numb
     'line_items[0][quantity]': '1',
     'line_items[0][price_data][currency]': 'usd',
     'line_items[0][price_data][unit_amount]': String(m.priceCents),
-    'line_items[0][price_data][product_data][name]': `Produce ${m.name}`,
+    'line_items[0][price_data][product_data][name]': `Grocery ${m.name}`,
     'line_items[0][price_data][product_data][description]': m.tagline,
     success_url: `${origin}/account/?paid=${m.id}`,
     cancel_url: `${origin}/account/?cancelled=${m.id}`,

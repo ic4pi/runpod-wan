@@ -1,17 +1,17 @@
 /**
- * Produce suite — interop contract.
- * Sprouts (recording) hands sessions off to the Produce hub, Beet (beats),
+ * Grocery suite — interop contract.
+ * Sprouts (recording) hands sessions off to the Grocery hub, Beet (beats),
  * and Processed/Preserves (mix/master) using one metadata shape + a strict
  * WAV spec. Everything here is plain JSON + PCM — no proprietary glue, so
- * any future Produce app or compatible partner can read it.
+ * any future Grocery app or compatible partner can read it.
  */
 
-export const PRODUCE_SAMPLE_RATE = 44100;
-export const PRODUCE_BIT_DEPTH = 16;
-export const PRODUCE_CHANNELS = 2;
+export const GROCERY_SAMPLE_RATE = 44100;
+export const GROCERY_BIT_DEPTH = 16;
+export const GROCERY_CHANNELS = 2;
 
 /** One track in a session — a vocal layer or the beat. */
-export interface ProduceTrack {
+export interface GroceryTrack {
   name: string;
   role: string;          // 'beat' | 'lead' | 'double' | 'backup' | 'adlib'
   startBar: number;      // 0-based bar where the track begins
@@ -23,8 +23,8 @@ export interface ProduceTrack {
   file: string;
 }
 
-export interface ProduceSession {
-  suite: 'produce';
+export interface GrocerySession {
+  suite: 'grocery';
   app: 'sprouts';
   version: 1;
   sessionName: string;
@@ -32,7 +32,7 @@ export interface ProduceSession {
   barCount: number;
   templateId: string;
   createdAt: number;
-  tracks: ProduceTrack[];
+  tracks: GroceryTrack[];
 }
 
 /** seconds → bars at a given bpm (4/4) */
@@ -41,15 +41,15 @@ export function secondsToBars(seconds: number, bpm: number): number {
 }
 
 /** Build the handoff metadata for a recorded session. */
-export function buildProduceSession(opts: {
+export function buildGrocerySession(opts: {
   sessionName: string;
   bpm: number;
   templateId: string;
   layers: { role: string; duration: number; pan: number | null; gain: number | null }[];
   beatDuration?: number;
-}): ProduceSession {
+}): GrocerySession {
   const { sessionName, bpm, templateId, layers, beatDuration } = opts;
-  const tracks: ProduceTrack[] = [];
+  const tracks: GroceryTrack[] = [];
   let maxEnd = 0;
 
   if (beatDuration && beatDuration > 0) {
@@ -83,7 +83,7 @@ export function buildProduceSession(opts: {
   }
 
   return {
-    suite: 'produce',
+    suite: 'grocery',
     app: 'sprouts',
     version: 1,
     sessionName,
@@ -96,19 +96,19 @@ export function buildProduceSession(opts: {
 }
 
 /** Serialize to the JSON sidecar that travels with the stems. */
-export function produceSessionJson(session: ProduceSession): string {
+export function grocerySessionJson(session: GrocerySession): string {
   return JSON.stringify(session, null, 2);
 }
 
 /**
- * Parse a Produce/Beet session on import. Validates the envelope and
+ * Parse a Grocery/Beet session on import. Validates the envelope and
  * returns null on anything that doesn't look like the contract.
  */
-export function parseProduceSession(json: string): ProduceSession | null {
+export function parseGrocerySession(json: string): GrocerySession | null {
   try {
-    const o = JSON.parse(json) as Partial<ProduceSession>;
-    if (o.suite !== 'produce' || typeof o.bpm !== 'number' || !Array.isArray(o.tracks)) return null;
-    return o as ProduceSession;
+    const o = JSON.parse(json) as Partial<GrocerySession>;
+    if ((o.suite as string) !== 'grocery' && (o.suite as string) !== 'produce' || typeof o.bpm !== 'number' || !Array.isArray(o.tracks)) return null;
+    return o as GrocerySession;
   } catch {
     return null;
   }

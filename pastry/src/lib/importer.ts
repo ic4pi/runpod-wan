@@ -24,7 +24,7 @@ const newId = () => crypto.randomUUID();
 const base = (n: string) => n.replace(/^.*[\\/]/, '');
 const escapeRe = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
-/** Produce session roles (lead, double, backup, adlib, beat) -> Bakery buses. */
+/** Grocery session roles (lead, double, backup, adlib, beat) -> Pastry buses. */
 function roleFromSession(role: string | undefined, name: string): Role {
   if (role === 'beat') return 'beat';
   if (role === 'bass') return 'bass';
@@ -37,7 +37,7 @@ async function toStem(blob: Blob, name: string, size: number, role: Role, offset
   return { id: newId(), name, size, buffer, role, offset, lead: leadingSilence(buffer) };
 }
 
-/** Import loose audio files and/or Produce session bundles (.zip with session.json + stems). */
+/** Import loose audio files and/or Grocery session bundles (.zip with session.json + stems). */
 export async function importFiles(files: File[]): Promise<{ stems: Stem[]; skipped: string[] }> {
   const stems: Stem[] = [];
   const skipped: string[] = [];

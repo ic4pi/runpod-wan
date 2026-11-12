@@ -2,8 +2,8 @@ import { next } from '@vercel/edge';
 import { defaultDeps } from './lib/env';
 import { decide } from './lib/gate';
 
-/** The paywall. Runs before any file under /bakery, /beet or /sprouts is served. */
-export const config = { matcher: ['/bakery/:path*', '/beet/:path*', '/sprouts/:path*'] };
+/** The paywall. Runs before any file under /pastry, /beet or /sprouts is served. */
+export const config = { matcher: ['/pastry/:path*', '/beet/:path*', '/sprouts/:path*'] };
 
 export default async function middleware(request: Request): Promise<Response> {
   const result = await decide({ url: request.url, cookie: request.headers.get('cookie') }, defaultDeps());

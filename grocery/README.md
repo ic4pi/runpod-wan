@@ -1,6 +1,6 @@
-# Produce (Free Hub)
+# Grocery (Free Hub)
 
-The free, minimal Produce app. Runs entirely on-device (Web Audio API), no accounts.
+The free, minimal Grocery app. Runs entirely on-device (Web Audio API), no accounts.
 
 **Included**
 - 1 plain vocal track (record) + 5 backing tracks (upload)
@@ -9,7 +9,7 @@ The free, minimal Produce app. Runs entirely on-device (Web Audio API), no accou
 - Output: a plain mixdown WAV, shared or downloaded from the app (a simple sum, no EQ, compression or limiting)
 
 **Not included (paid modules)**
-Effects, templates, auto-mix, layers/takes vault (Sprouts), synths (Beet), mixing and mastering (Bakery), sampler (Diced).
+Effects, templates, auto-mix, layers/takes vault (Sprouts), synths (Beet), mixing and mastering (Pastry), sampler (Diced).
 
 ## Run
 `npm ci && npm run dev` · `npm run build`

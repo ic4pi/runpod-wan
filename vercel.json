@@ -6,8 +6,8 @@
   "outputDirectory": "dist",
   "redirects": [
     {
-      "source": "/bakery",
-      "destination": "/bakery/",
+      "source": "/pastry",
+      "destination": "/pastry/",
       "permanent": true
     },
     {
@@ -123,7 +123,7 @@
       ]
     },
     {
-      "source": "/bakery/(.*)",
+      "source": "/pastry/(.*)",
       "headers": [
         {
           "key": "Cache-Control",

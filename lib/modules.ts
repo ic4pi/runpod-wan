@@ -1,12 +1,12 @@
 /**
- * The paid modules. Prices are set by what each one contributes to Produce's
+ * The paid modules. Prices are set by what each one contributes to Grocery's
  * promise: turn rough recordings into music people want to listen to.
- *   Bakery  finishes the song (mix and master)       -> biggest contribution
+ *   Pastry  finishes the song (mix and master)       -> biggest contribution
  *   Beet    makes the backing track from scratch     -> next
  *   Sprouts polishes the vocal before it is mixed    -> smallest of the three
  * Diced is not built yet, so it cannot be bought.
  */
-export type ModuleId = 'bakery' | 'beet' | 'sprouts' | 'diced';
+export type ModuleId = 'pastry' | 'beet' | 'sprouts' | 'diced';
 
 export interface ModuleInfo {
   id: ModuleId;
@@ -19,7 +19,7 @@ export interface ModuleInfo {
 
 export const MODULES: ModuleInfo[] = [
   {
-    id: 'bakery', name: 'Bakery', tagline: 'Mix and master',
+    id: 'pastry', name: 'Pastry', tagline: 'Mix and master',
     why: 'Turns a rough recording into a finished, release-ready master. The biggest step toward music people want to hear.',
     priceCents: 599, status: 'live',
   },
@@ -40,13 +40,13 @@ export const MODULES: ModuleInfo[] = [
   },
 ];
 
-export const PAID_PATHS: ModuleId[] = ['bakery', 'beet', 'sprouts'];
+export const PAID_PATHS: ModuleId[] = ['pastry', 'beet', 'sprouts'];
 
 export const getModule = (id: unknown): ModuleInfo | undefined => MODULES.find((m) => m.id === id);
 export const isBuyable = (m: ModuleInfo | undefined): m is ModuleInfo & { priceCents: number } =>
   !!m && m.status === 'live' && m.priceCents !== null;
 
-/** '/bakery/assets/x.js' -> 'bakery'. Anything that is not a paid module returns null. */
+/** '/pastry/assets/x.js' -> 'pastry'. Anything that is not a paid module returns null. */
 export function moduleForPath(pathname: string): ModuleId | null {
   const first = pathname.split('/')[1]?.toLowerCase();
   return (PAID_PATHS as string[]).includes(first) ? (first as ModuleId) : null;

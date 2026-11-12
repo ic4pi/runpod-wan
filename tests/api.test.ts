@@ -15,12 +15,12 @@ const session = { access_token: 'AT', refresh_token: 'RT', expires_in: 3600, use
 beforeEach(() => { setEnv(); vi.unstubAllGlobals(); });
 
 describe('catalog and prices', () => {
-  it('prices follow contribution: Bakery > Beet > Sprouts, all inside the README range', () => {
+  it('prices follow contribution: Pastry > Beet > Sprouts, all inside the README range', () => {
     const p = Object.fromEntries(MODULES.map((m) => [m.id, m.priceCents]));
-    expect(p.bakery!).toBeGreaterThan(p.beet!);
+    expect(p.pastry!).toBeGreaterThan(p.beet!);
     expect(p.beet!).toBeGreaterThan(p.sprouts!);
-    for (const id of ['bakery', 'beet', 'sprouts']) { expect(p[id]!).toBeGreaterThanOrEqual(399); expect(p[id]!).toBeLessThanOrEqual(599); }
-    expect(p).toMatchObject({ bakery: 599, beet: 499, sprouts: 399 });
+    for (const id of ['pastry', 'beet', 'sprouts']) { expect(p[id]!).toBeGreaterThanOrEqual(399); expect(p[id]!).toBeLessThanOrEqual(599); }
+    expect(p).toMatchObject({ pastry: 599, beet: 499, sprouts: 399 });
   });
   it('Diced is listed but cannot be bought', () => {
     const d = MODULES.find((m) => m.id === 'diced')!;
@@ -34,8 +34,8 @@ describe('input checks', () => {
     for (const [e, p] of [['nope', 'password1'], ['a@b.co', 'short'], ['a@b.co', 'x'.repeat(73)], [1, 'password1'], ['a@b.co', null], ['a b@c.co', 'password1']]) expect(validCredentials(e, p)).toBeNull();
   });
   it('only redirects to paths on this site', () => {
-    expect(safeNext('/bakery/')).toBe('/bakery/');
-    for (const bad of [null, '', 'https://evil.com', '//evil.com', '/\\evil.com', 'bakery', '/a\nb']) expect(safeNext(bad)).toBe('/account/');
+    expect(safeNext('/pastry/')).toBe('/pastry/');
+    for (const bad of [null, '', 'https://evil.com', '//evil.com', '/\\evil.com', 'pastry', '/a\nb']) expect(safeNext(bad)).toBe('/account/');
   });
 });
 
@@ -99,8 +99,8 @@ describe('refresh', () => {
   const refreshOk = (u: string) => (u.includes('grant_type=refresh_token') ? res(session) : undefined);
   it('renews and returns to the page with a one-time marker', async () => {
     vi.stubGlobal('fetch', fakeFetch(refreshOk).fn);
-    const r = await refreshGet(new Request('https://site.test/api/refresh?next=%2Fbakery%2F', { headers: { cookie: 'pr=RT' } }));
-    expect(r.status).toBe(302); expect(r.headers.get('location')).toBe('/bakery/?_r=1'); expect(cookiesOf(r).some((c) => c.startsWith('pa=AT'))).toBe(true);
+    const r = await refreshGet(new Request('https://site.test/api/refresh?next=%2Fpastry%2F', { headers: { cookie: 'pr=RT' } }));
+    expect(r.status).toBe(302); expect(r.headers.get('location')).toBe('/pastry/?_r=1'); expect(cookiesOf(r).some((c) => c.startsWith('pa=AT'))).toBe(true);
   });
   it('will not redirect off-site', async () => {
     vi.stubGlobal('fetch', fakeFetch(refreshOk).fn);
@@ -109,7 +109,7 @@ describe('refresh', () => {
   });
   it('sends you to sign in when the refresh fails', async () => {
     vi.stubGlobal('fetch', fakeFetch(() => res({}, 400)).fn);
-    const r = await refreshGet(new Request('https://site.test/api/refresh?next=%2Fbakery%2F', { headers: { cookie: 'pr=RT' } }));
+    const r = await refreshGet(new Request('https://site.test/api/refresh?next=%2Fpastry%2F', { headers: { cookie: 'pr=RT' } }));
     expect(r.headers.get('location')).toBe('/account/'); expect(cookiesOf(r).every((c) => c.includes('Max-Age=0'))).toBe(true);
   });
   it('POST needs a same-site caller', async () => {
@@ -125,13 +125,13 @@ describe('checkout', () => {
 
   it('creates a Stripe checkout for the right amount, tied to the signed-in user', async () => {
     const f = fakeFetch(supa.user(), supa.owned(), stripeOk); vi.stubGlobal('fetch', f.fn);
-    const r = await buy('bakery');
+    const r = await buy('pastry');
     expect(await r.json()).toEqual({ url: 'https://checkout.stripe.com/c/pay/abc' });
     const stripeCall = f.calls.find((c) => c.url.includes('api.stripe.com'))!;
     const form = new URLSearchParams(String(stripeCall.init?.body));
     expect(form.get('line_items[0][price_data][unit_amount]')).toBe('599');
-    expect(form.get('metadata[user_id]')).toBe(USER_ID); expect(form.get('metadata[module]')).toBe('bakery');
-    expect(form.get('success_url')).toBe('https://site.test/account/?paid=bakery');
+    expect(form.get('metadata[user_id]')).toBe(USER_ID); expect(form.get('metadata[module]')).toBe('pastry');
+    expect(form.get('success_url')).toBe('https://site.test/account/?paid=pastry');
     expect((stripeCall.init?.headers as Record<string, string>).Authorization).toBe('Bearer sk_test_123');
   });
   it('takes the price from the server, never from the browser', async () => {
@@ -145,24 +145,24 @@ describe('checkout', () => {
   });
   it('needs a signed-in user', async () => {
     vi.stubGlobal('fetch', fakeFetch(supa.userRejected()).fn);
-    expect((await buy('bakery', '')).status).toBe(401);
-    expect((await buy('bakery', 'pa=old')).status).toBe(401);
+    expect((await buy('pastry', '')).status).toBe(401);
+    expect((await buy('pastry', 'pa=old')).status).toBe(401);
   });
   it('does not charge twice for the same module', async () => {
-    const f = fakeFetch(supa.user(), supa.owned('bakery'), stripeOk); vi.stubGlobal('fetch', f.fn);
-    expect((await buy('bakery')).status).toBe(409);
+    const f = fakeFetch(supa.user(), supa.owned('pastry'), stripeOk); vi.stubGlobal('fetch', f.fn);
+    expect((await buy('pastry')).status).toBe(409);
     expect(f.calls.some((c) => c.url.includes('stripe'))).toBe(false);
   });
   it('says payments are off until Stripe is configured', async () => {
     setEnv({ STRIPE_SECRET_KEY: undefined });
     vi.stubGlobal('fetch', fakeFetch(supa.user(), supa.owned()).fn);
-    const r = await buy('bakery'); expect(r.status).toBe(503); expect((await r.json()).error).toBe('payments_not_configured');
+    const r = await buy('pastry'); expect(r.status).toBe(503); expect((await r.json()).error).toBe('payments_not_configured');
   });
   it('blocks other sites', async () => {
-    expect((await checkout(post('/api/checkout', { module: 'bakery' }, { origin: 'https://evil.test', cookie: 'pa=AT' }))).status).toBe(403);
+    expect((await checkout(post('/api/checkout', { module: 'pastry' }, { origin: 'https://evil.test', cookie: 'pa=AT' }))).status).toBe(403);
   });
   it('reports a Stripe outage', async () => {
     vi.stubGlobal('fetch', fakeFetch(supa.user(), supa.owned(), (u) => (u.includes('stripe') ? new Response('x', { status: 500 }) : undefined)).fn);
-    expect((await buy('bakery')).status).toBe(503);
+    expect((await buy('pastry')).status).toBe(503);
   });
 });

@@ -36,7 +36,7 @@ describe('Stripe signature check', () => {
 function event(over: Record<string, unknown> = {}, meta: Record<string, string> = {}) {
   return {
     id: 'evt_1', type: 'checkout.session.completed',
-    data: { object: { id: 'cs_1', payment_status: 'paid', amount_total: 599, metadata: { user_id: USER_ID, module: 'bakery', ...meta }, ...over } },
+    data: { object: { id: 'cs_1', payment_status: 'paid', amount_total: 599, metadata: { user_id: USER_ID, module: 'pastry', ...meta }, ...over } },
   };
 }
 async function call(ev: unknown, f: ReturnType<typeof fakeFetch>, headerOverride?: string) {
@@ -64,7 +64,7 @@ describe('Stripe webhook', () => {
     expect(grants(f)).toHaveLength(1);
     const g = grants(f)[0];
     expect(g.init?.method).toBe('POST');
-    expect(JSON.parse(String(g.init?.body))).toEqual({ user_id: USER_ID, module: 'bakery', stripe_session_id: 'cs_1', amount_cents: 599, source: 'stripe' });
+    expect(JSON.parse(String(g.init?.body))).toEqual({ user_id: USER_ID, module: 'pastry', stripe_session_id: 'cs_1', amount_cents: 599, source: 'stripe' });
     expect((g.init?.headers as Record<string, string>).Authorization).toBe('Bearer service-key');
   });
 
