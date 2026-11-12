@@ -18,6 +18,7 @@ import { CATEGORIES, PRESETS, getPreset, type Category } from '@/lib/synth/prese
 import { DRUMS } from '@/lib/synth/engines';
 import { exportBundle, mixToWav, renderMix } from '@/lib/render';
 import { sessionToMidi } from '@/lib/midi';
+import { useSmk } from '@/lib/smk';
 import { shareOrDownload } from '@/lib/audio/export';
 
 const DRUM_ORDER = ['Kick', 'Snare', 'Clap', 'Closed Hat', 'Open Hat', 'Tom', 'Rim', 'Crash'].map((n) => DRUMS.find((d) => d.name === n)!.pitch);
@@ -130,6 +131,28 @@ export default function App() {
     hit(drum ? (DRUMS.some((d) => d.pitch === pitch) ? pitch : DRUM_ORDER[pitch % 8]) : pitch, vel);
   });
 
+  // SMK-25 knobs + transport (works with any controller — see lib/smk.ts).
+  // Bank A: 1 Volume · 2 Pan · 3 Reverb · 4 Delay · 5 Feel · 6 BPM · 7-8 unused
+  const recRef = useRef(rec);
+  useEffect(() => { recRef.current = rec; }, [rec]);
+  const smk = useSmk((a) => {
+    if (!track) return;
+    if (a.type === 'play') { if (!transport.playing) { transport.start(); setPlaying(true); } }
+    else if (a.type === 'stop') { transport.stop(); setPlaying(false); }
+    else if (a.type === 'record-toggle') setRec(!recRef.current);
+    else if (a.type === 'knob') {
+      const v = a.value;
+      switch (a.index) {
+        case 0: patch(track.id, { volume: Math.round(v * 1.2 * 100) / 100 }); break;
+        case 1: patch(track.id, { pan: Math.round((v * 2 - 1) * 50) / 50 }); break;
+        case 2: patch(track.id, { reverb: Math.round(v * 100) / 100 }); break;
+        case 3: patch(track.id, { delay: Math.round(v * 100) / 100 }); break;
+        case 4: patch(track.id, { humanize: Math.round(v * 100) / 100 }); break;
+        case 5: apply((s) => ({ ...s, bpm: Math.round(60 + v * 120) }), false); break;
+      }
+    }
+  });
+
   const addTrack = (presetId: string) => {
     if (session.tracks.length >= MAX_TRACKS) return toast.error(`Up to ${MAX_TRACKS} tracks.`);
     const t = newTrack(presetId, session.tracks);
@@ -195,6 +218,7 @@ export default function App() {
   });
 
   const midiLabel = midi === 'connected' ? 'MIDI on' : midi === 'none' ? 'No MIDI' : 'MIDI n/a';
+  const smkLabel = smk === 'connected' ? 'SMK on' : '';
 
   return (
     <div className="min-h-dvh bg-background text-foreground">
@@ -233,6 +257,7 @@ export default function App() {
             </select>
           </label>
           <span className="font-mono text-[10px] uppercase tracking-[0.15em] text-muted-foreground" aria-label="MIDI status">{midiLabel}</span>
+          {smkLabel && <span className="font-mono text-[10px] uppercase tracking-[0.15em] text-primary" aria-label="Controller status">{smkLabel}</span>}
           <div className="ml-auto flex gap-2">
             <Button variant="ghost" className="min-h-11" onClick={newProject}><FilePlus className="mr-2 h-4 w-4" /> New</Button>
           </div>
@@ -364,7 +389,7 @@ export default function App() {
             </section>
 
             <p className="text-xs normal-case tracking-normal text-muted-foreground">
-              Tap a cell to add or remove a note. The grid is 16th-notes grouped by beat and bar — the top ruler numbers every beat of every measure. Keyboard: {drum ? 'A S D F G H J K play the drums' : 'A–L play notes, W E T Y U O P are sharps, Z and X change octave'}. Space plays and stops, Ctrl/Cmd+Z undoes. A plugged-in MIDI keyboard or pad plays the selected track. Turn on Rec to record into the loop.
+              Tap a cell to add or remove a note. The grid is 16th-notes grouped by beat and bar — the top ruler numbers every beat of every measure. Keyboard: {drum ? 'A S D F G H J K play the drums' : 'A–L play notes, W E T Y U O P are sharps, Z and X change octave'}. Space plays and stops, Ctrl/Cmd+Z undoes. A plugged-in MIDI keyboard or pad plays the selected track. Turn on Rec to record into the loop. With an SMK-25, knobs 1–6 ride Volume, Pan, Reverb, Delay, Feel and BPM on the selected track, and the transport buttons play/stop (CC 101–103 or stock MMC).
             </p>
           </>
         ) : (
