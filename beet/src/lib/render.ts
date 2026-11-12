@@ -1,6 +1,6 @@
 import JSZip from 'jszip';
 import { audioBufferToWav } from './audio/wav';
-import { audible, entryStep, stepSeconds, totalSteps, type Session, type Track } from './session';
+import { audible, barSteps, entryStep, stepSeconds, totalSteps, type Session, type Track } from './session';
 import { feel } from './humanize';
 import { createFxBus, createStrip, setStrip } from './fx';
 import { getPreset, voiceOf } from './synth/presets';
@@ -10,7 +10,7 @@ const TAIL = 3;
 
 function schedule(ctx: BaseAudioContext, out: AudioNode, t: Track, s: Session) {
   const { engine, params, trim } = voiceOf(t.presetId);
-  const dur = stepSeconds(s.bpm), total = totalSteps(s), entry = entryStep(t);
+  const dur = stepSeconds(s.bpm), total = totalSteps(s), entry = entryStep(s, t);
   for (const n of t.notes) {
     if (n.step >= total || n.step < entry) continue;
     const f = feel(t, n);
@@ -38,7 +38,7 @@ function trimTo(buf: AudioBuffer, db: number) {
 /** The whole song, audible tracks summed. Only reduces level if it would clip. */
 export async function renderMix(s: Session): Promise<AudioBuffer> {
   const on = audible(s);
-  if (!on.length || !on.some((t) => t.notes.some((n) => n.step >= entryStep(t)))) throw new Error('Nothing to export. Add some notes first.');
+  if (!on.length || !on.some((t) => t.notes.some((n) => n.step >= entryStep(s, t)))) throw new Error('Nothing to export. Add some notes first.');
   const ctx = offline(s);
   const bus = createFxBus(ctx, ctx.destination, s.bpm);
   for (const t of on) strip(ctx, t, ctx.destination, s, bus);
@@ -61,7 +61,7 @@ const safe = (n: string) => n.replace(/[^a-z0-9 _-]/gi, '').trim().replace(/\s+/
 
 /** Grocery session bundle: stems/*.wav + session.json. Pastry and the Grocery apps import this. */
 export async function exportBundle(s: Session, sessionName = 'Beet session'): Promise<Blob> {
-  const on = audible(s).filter((t) => t.notes.some((n) => n.step >= entryStep(t)));
+  const on = audible(s).filter((t) => t.notes.some((n) => n.step >= entryStep(s, t)));
   if (!on.length) throw new Error('Nothing to export. Add some notes first.');
   const zip = new JSZip();
   const used = new Map<string, number>();
@@ -77,9 +77,11 @@ export async function exportBundle(s: Session, sessionName = 'Beet session'): Pr
     });
   }
   zip.file('session.json', JSON.stringify({
-    suite: 'grocery', app: 'beet', version: 1, sessionName, bpm: s.bpm, barCount: s.bars, templateId: '', createdAt: Date.now(), tracks,
+    suite: 'grocery', app: 'beet', version: 1, sessionName, bpm: s.bpm, barCount: s.bars,
+    beatsPerBar: s.sig.beats, beatUnit: s.sig.unit, secondsPerBar: barSteps(s.sig) * stepSeconds(s.bpm),
+    templateId: '', createdAt: Date.now(), tracks,
   }, null, 2));
-  zip.file('README.txt', `BEET SESSION (Grocery suite)\nBPM ${s.bpm}, ${s.bars} bars. Stems are 44.1 kHz / 16-bit / stereo WAV, all starting at bar 1.\nImport this zip into Pastry or any Grocery app.\n`);
+  zip.file('README.txt', `BEET SESSION (Grocery suite)\nBPM ${s.bpm}, ${s.sig.beats}/${s.sig.unit}, ${s.bars} bars. Stems are 44.1 kHz / 16-bit / stereo WAV, all starting at bar 1.\nImport this zip into Pastry or any Grocery app.\n`);
   return zip.generateAsync({ type: 'blob', compression: 'STORE' });
 }
 
