@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef } from 'react';
 import { DRUMS } from '@/lib/synth/engines';
-import { STEPS_PER_BAR, type Note } from '@/lib/session';
+import { accentSteps, barSteps, unitSteps, type Note, type TimeSig } from '@/lib/session';
 import { maxLength } from '@/lib/notes';
 
 const coarse = typeof window !== 'undefined' && window.matchMedia?.('(pointer: coarse)').matches;
@@ -17,6 +17,7 @@ export interface Picked { pitch: number; step: number }
 interface Props {
   notes: Note[];
   bars: number;
+  sig: TimeSig;
   drum: boolean;
   base: number;
   noteLen: number;
@@ -29,8 +30,17 @@ interface Props {
   onPreview: (pitch: number) => void;
 }
 
-export function PianoRoll({ notes, bars, drum, base, noteLen, tool, picked, entry, getPosition, onChange, onPick, onPreview }: Props) {
-  const cols = bars * STEPS_PER_BAR;
+/** Beat groups per bar for the beat-number ruler. In 6/8 that's two dotted-quarter beats, not six eighths. */
+function beatGroups(sig: TimeSig): number {
+  return sig.unit === 8 ? Math.ceil(sig.beats / 3) : sig.beats;
+}
+
+export function PianoRoll({ notes, bars, sig, drum, base, noteLen, tool, picked, entry, getPosition, onChange, onPick, onPreview }: Props) {
+  const bar = barSteps(sig);
+  const accent = accentSteps(sig);
+  const unit = unitSteps(sig);
+  const cols = bars * bar;
+
   const rows = useMemo(
     () => (drum ? DRUMS : Array.from({ length: 24 }, (_, i) => ({ pitch: base + 23 - i, name: noteName(base + 23 - i) }))),
     [drum, base],
@@ -42,6 +52,17 @@ export function PianoRoll({ notes, bars, drum, base, noteLen, tool, picked, entr
     notes.forEach((n, i) => { for (let s = n.step; s < n.step + n.len; s++) m.set(`${n.pitch}:${s}`, { i, head: s === n.step }); });
     return m;
   }, [notes]);
+
+  // beat-group boundaries for the ruler: one entry per group, in steps from bar start
+  const groups = useMemo(() => {
+    const n = beatGroups(sig);
+    const out: { step: number; width: number; num: number }[] = [];
+    for (let g = 0; g < n; g++) {
+      const step = g * accent;
+      out.push({ step, width: Math.min(accent, bar - step), num: g + 1 });
+    }
+    return out;
+  }, [sig, accent, bar]);
 
   const scroller = useRef<HTMLDivElement>(null);
   const head = useRef<HTMLDivElement>(null);
@@ -85,11 +106,23 @@ export function PianoRoll({ notes, bars, drum, base, noteLen, tool, picked, entr
     <div ref={scroller} className="relative max-h-[58vh] overflow-auto border border-border" onPointerDown={onDown} style={{ touchAction: 'pan-x pan-y' }}>
       <div className="relative" style={{ width: LABEL + cols * CELL }}>
         <div ref={head} className="pointer-events-none absolute top-0 z-20 hidden h-full w-0.5 bg-primary" style={{ left: 0 }} />
-        <div className="sticky top-0 z-10 flex bg-background" style={{ height: 20 }}>
-          <div className="sticky left-0 z-10 shrink-0 bg-background" style={{ width: LABEL }} />
-          {Array.from({ length: bars }, (_, b) => (
-            <div key={b} className="shrink-0 border-l border-foreground/30 pl-1 font-mono text-[10px] text-muted-foreground" style={{ width: CELL * STEPS_PER_BAR }}>{b + 1}</div>
-          ))}
+        <div className="sticky top-0 z-10 bg-background">
+          <div className="flex" style={{ height: 20 }}>
+            <div className="sticky left-0 z-10 shrink-0 bg-background" style={{ width: LABEL }} />
+            {Array.from({ length: bars }, (_, b) => (
+              <div key={b} className="shrink-0 border-l border-foreground/30 pl-1 font-mono text-[10px] text-muted-foreground" style={{ width: CELL * bar }}>{b + 1}</div>
+            ))}
+          </div>
+          <div className="flex" style={{ height: 16 }} aria-hidden="true">
+            <div className="sticky left-0 z-10 shrink-0 bg-background" style={{ width: LABEL }} />
+            {Array.from({ length: bars }, (_, b) => (
+              <div key={b} className="flex shrink-0" style={{ width: CELL * bar }}>
+                {groups.map((g) => (
+                  <div key={g.step} className="shrink-0 border-l border-foreground/20 text-center font-mono text-[9px] leading-4 text-muted-foreground/50" style={{ width: CELL * g.width }}>{g.num}</div>
+                ))}
+              </div>
+            ))}
+          </div>
         </div>
         {rows.map((r) => (
           <div key={r.pitch} className="flex" style={{ height: ROW }}>
@@ -99,8 +132,13 @@ export function PianoRoll({ notes, bars, drum, base, noteLen, tool, picked, entr
             {Array.from({ length: cols }, (_, s) => {
               const c = cover.get(`${r.pitch}:${s}`);
               const sel = !!picked && c?.head && picked.pitch === r.pitch && picked.step === s;
-              const bg = c ? (c.head ? 'bg-primary' : 'bg-primary/50') : !drum && isBlack(r.pitch) ? 'bg-secondary/60' : Math.floor(s / 4) % 2 ? 'bg-card' : 'bg-background';
-              const edge = s % STEPS_PER_BAR === 0 ? 'border-l border-l-foreground/30' : s % 4 === 0 ? 'border-l border-l-border' : '';
+              const inBar = s % bar;
+              const bg = c ? (c.head ? 'bg-primary' : 'bg-primary/50')
+                : !drum && isBlack(r.pitch) ? 'bg-secondary/60'
+                : inBar % accent === 0 ? (Math.floor(s / accent) % 2 ? 'bg-card' : 'bg-background') : 'bg-background';
+              const edge = inBar === 0 ? 'border-l-2 border-l-foreground/40'
+                : inBar % accent === 0 ? 'border-l border-l-foreground/25'
+                : unit < accent && inBar % unit === 0 ? 'border-l border-l-border/60' : '';
               return (
                 <div key={s} data-p={r.pitch} data-s={s}
                   className={`shrink-0 border-b border-border ${edge} ${bg} ${s < entry ? 'opacity-40' : ''} ${sel ? 'outline outline-2 -outline-offset-2 outline-foreground' : ''}`}
