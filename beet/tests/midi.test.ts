@@ -68,7 +68,7 @@ describe('MIDI file export', () => {
     const s: Session = defaultSession(); s.tracks[0].mute = true;
     expect(parse(sessionToMidi(s)).ntrks).toBe(1);
     const b = { ...newTrack('bass-sub', []), startBar: 1, notes: [{ step: 0, pitch: 36, len: 1, vel: 90 }, { step: 16, pitch: 38, len: 1, vel: 90 }] };
-    const ev = events(parse(sessionToMidi({ bpm: 90, bars: 2, tracks: [b] })).tracks[1]).filter((e) => e.kind === 'on');
+    const ev = events(parse(sessionToMidi({ bpm: 90, bars: 2, sig: { beats: 4, unit: 4 }, tracks: [b] })).tracks[1]).filter((e) => e.kind === 'on');
     expect(ev.map((e) => e.pitch)).toEqual([38]);
   });
 });
