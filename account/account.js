@@ -31,7 +31,7 @@
 
   function intro() {
     var need = params.get('need'), err = params.get('error'), cancelled = params.get('cancelled');
-    if (err === 'config') banner('Accounts are not switched on yet, so paid modules are locked.', true);
+    if (err === 'config') banner('Paid modules are coming soon.');
     else if (err === 'unavailable') banner('We could not check your account just now. Try again in a minute.', true);
     else if (need && NAMES[need]) banner('Sign in with an account that owns ' + NAMES[need] + ' to open it.');
     else if (cancelled) banner('Checkout cancelled. You were not charged.');
@@ -64,6 +64,15 @@
       }).catch(function () { banner('Could not start checkout.', true); btn.disabled = false; btn.textContent = label; });
   }
 
+  // Accounts are not switched on yet: show what is coming, with no sign-in form to fail.
+  function showComingSoon(catalog) {
+    $('who').textContent = 'Paid modules are coming soon.';
+    renderModules({ catalog: catalog, owned: [], payments: false });
+    document.querySelectorAll('#modules .buy').forEach(function (b) { b.textContent = 'Coming soon'; });
+    banner('');
+    show('signed-in'); $('signout').hidden = true;
+  }
+
   function load(retry) {
     return api('/api/me').then(function (r) { return r.json().then(function (b) { return { r: r, b: b }; }); }).then(function (x) {
       if (x.r.ok) {
@@ -77,7 +86,7 @@
       if (x.b.error === 'expired' && !retry) {
         return api('/api/refresh', {}).then(function (r) { return r.ok ? load(true) : (show('signed-out'), null); });
       }
-      if (x.b.error === 'not_configured') banner('Accounts are not switched on yet, so paid modules are locked.', true);
+      if (x.b.error === 'not_configured') { showComingSoon(x.b.catalog || []); return; }
       show('signed-out');
     }).catch(function () { banner('Could not reach the server. Check your connection.', true); show('signed-out'); });
   }

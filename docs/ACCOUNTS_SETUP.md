@@ -23,7 +23,7 @@ Authentication > Providers > Email: keep "Confirm email" on (customers confirm b
 Authentication > URL Configuration: set Site URL to your production address.
 Supabase's built-in email sender is rate limited; for real launch add your own SMTP provider.
 
-## 3. Environment variables (Vercel > project `grocery-site` > Settings > Environment Variables)
+## 3. Environment variables (Vercel > project `grocery` > Settings > Environment Variables)
 Add these yourself in the Vercel dashboard. Never paste secrets into chat or commit them.
 
 | Name | Where to find it | Secret? |
@@ -44,6 +44,4 @@ Create an endpoint at `https://<your-site>/api/stripe-webhook` listening for `ch
 Use test mode first (card 4242 4242 4242 4242). Switch to live keys only after a full test purchase unlocks a module.
 
 ## 5. Going live
-The test project `grocery-site` builds the combined site. To cut over, point the `grocery` Vercel project at the
-repository root (clear its Root Directory) and give it the same environment variables, then delete the separate
-`pastry`, `beet` and `sprouts` projects.
+There is one Vercel project (`grocery`). Add the settings above to it and redeploy. Until they are set, paid apps stay locked and `/account/` says paid modules are coming soon.

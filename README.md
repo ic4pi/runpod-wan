@@ -102,20 +102,22 @@ npm run build
 
 ## Deployment
 
-**Production:** Vercel, one project per app, all built from this repo's `main` branch.
+**One Vercel project, one deployment** (`grocery`), built from this repo's `main` branch.
+`npm run build` builds all four apps and assembles one site:
 
-| Vercel project | Root directory | Access |
+| Address | App | Access |
 |---|---|---|
-| `grocery` | `grocery` | Public (free hub) |
-| `sprouts` | `sprouts` | Private until accounts and paywall exist |
-| `pastry` | `pastry` | Private until accounts and paywall exist |
-| `beet` | `beet` | Private until accounts and paywall exist |
+| `/` | Grocery (free hub) | Public |
+| `/pastry/` | Pastry (mix and master) | Locked until you own it |
+| `/beet/` | Beet (synth and drums) | Locked until you own it |
+| `/sprouts/` | Sprouts (vocals) | Locked until you own it |
+| `/account/` | Sign in and buy | Public |
 
-Each app has its own `vercel.json` (security headers, caching). There is no root `vercel.json`: Vercel rejects multi-project config there.
-Pushes to `main` deploy to production; other branches get preview deployments.
+`middleware.ts` does the locking. See `docs/ACCOUNTS_SETUP.md` for the settings it needs.
+Pushes to `main` go to production; other branches get a preview of the whole site.
 
 ```bash
-cd <app> && npm ci && npm run build   # same build Vercel runs
+npm ci && npm run build   # same build Vercel runs; output is in dist/
 ```
 
 ## Pricing Model
