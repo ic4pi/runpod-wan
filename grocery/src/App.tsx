@@ -12,6 +12,7 @@ import { MAX_NUDGE, clearSession, emptySlots, loadSession, saveSession, type Slo
 import { forget, forgetAll, inspect, mixdown, play, type Player } from '@/lib/audio';
 import { formatDuration } from '@/lib/audio/wav';
 import { shareOrDownload } from '@/lib/audio/export';
+import { useSmk } from '@/lib/smk';
 import { BeatMaker } from '@/components/BeatMaker';
 import { FreePlay } from '@/components/FreePlay';
 
@@ -154,6 +155,15 @@ export default function App() {
     setConfirmNew(false);
   };
 
+  // SMK-25 knobs + transport (see lib/smk.ts). Bank A knobs 1–6 ride the six
+  // track volumes; transport plays, stops, and toggles recording.
+  const smk = useSmk((a) => {
+    if (a.type === 'play') void startPlayback();
+    else if (a.type === 'stop') stopPlayback();
+    else if (a.type === 'record-toggle') void toggleRecord();
+    else if (a.type === 'knob' && a.index < 6) patch(a.index, { volume: Math.round(a.value * 1.5 * 100) / 100 });
+  });
+
   return (
     <div className="min-h-dvh bg-background text-foreground">
       <div className="mx-auto w-full max-w-2xl px-5 pb-32 pt-6">
@@ -163,6 +173,9 @@ export default function App() {
             <span className="ml-2 align-middle font-mono text-[9px] uppercase tracking-[0.25em] text-muted-foreground/60">Free</span>
           </h1>
           <div className="flex items-center gap-1">
+            {smk === 'connected' && (
+              <span className="font-mono text-[10px] uppercase tracking-[0.15em] text-primary">SMK on</span>
+            )}
             <a
               href="/account/"
               className="inline-flex min-h-9 items-center px-3 text-sm text-muted-foreground underline-offset-4 hover:text-foreground hover:underline focus-visible:outline-2 focus-visible:outline-primary"
