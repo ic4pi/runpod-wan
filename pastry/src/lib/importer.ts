@@ -50,7 +50,18 @@ export async function importFiles(files: File[]): Promise<{ stems: Stem[]; skipp
         let listed: { name?: string; role?: string; file?: string; startBar?: number; offsetSeconds?: number }[] = [];
         let barSeconds = 0;
         if (sf) {
-          try { const o = JSON.parse(await sf.async('string')); if (Array.isArray(o.tracks)) { listed = o.tracks; if (typeof o.bpm === 'number' && o.bpm > 0) barSeconds = (60 / o.bpm) * 4; } } catch { /* ignore bad session.json */ }
+          try {
+            const o = JSON.parse(await sf.async('string'));
+            if (Array.isArray(o.tracks)) {
+              listed = o.tracks;
+              if (typeof o.bpm === 'number' && o.bpm > 0) {
+                // Beet writes beatsPerBar/beatUnit since the meter update; older zips are 4/4.
+                const beats = typeof o.beatsPerBar === 'number' && o.beatsPerBar >= 1 && o.beatsPerBar <= 8 ? o.beatsPerBar : 4;
+                const unit = o.beatUnit === 8 ? 2 : 4; // 16th-note steps per beat unit
+                barSeconds = (60 / o.bpm) * beats * unit / 4;
+              }
+            }
+          } catch { /* ignore bad session.json */ }
         }
         const used = new Set<string>();
         for (const t of listed) {
