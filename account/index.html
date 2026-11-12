@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0a0a0f">
+<meta name="robots" content="noindex">
+<title>Account · Produce</title>
+<link rel="icon" type="image/png" href="/icons/icon-192.png">
+<link rel="stylesheet" href="./account.css">
+</head>
+<body>
+<main>
+  <header>
+    <a class="brand" href="/">PRODUCE<span>.</span></a>
+    <nav><a href="/">Back to Produce</a><button id="signout" hidden>Sign out</button></nav>
+  </header>
+
+  <p id="banner" role="status" aria-live="polite" hidden></p>
+
+  <section id="signed-out" hidden>
+    <h1>Sign in to unlock more</h1>
+    <p class="lede">One account for every module. Buy once, use it any time.</p>
+    <div class="tabs" role="tablist">
+      <button type="button" role="tab" id="tab-login" aria-selected="true">Sign in</button>
+      <button type="button" role="tab" id="tab-signup" aria-selected="false">Create account</button>
+    </div>
+    <form id="auth-form" novalidate>
+      <label>Email<input id="email" type="email" autocomplete="email" required></label>
+      <label>Password<input id="password" type="password" autocomplete="current-password" minlength="8" maxlength="72" required></label>
+      <p class="hint" id="pw-hint" hidden>At least 8 characters.</p>
+      <button type="submit" id="submit" class="primary">Sign in</button>
+    </form>
+  </section>
+
+  <section id="signed-in" hidden>
+    <h1>Your modules</h1>
+    <p class="lede" id="who"></p>
+    <ul id="modules"></ul>
+  </section>
+
+  <section id="loading"><p class="lede">Loading…</p></section>
+</main>
+<script src="./account.js"></script>
+</body>
+</html>
