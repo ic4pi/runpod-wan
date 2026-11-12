@@ -7,6 +7,7 @@ import { audioBufferToWav, formatBytes } from '@/lib/audio/wav';
 import { shareOrDownload } from '@/lib/audio/export';
 import { importFiles, type Role, type Stem } from '@/lib/importer';
 import { DEFAULT_TEMPLATE_ID, LEVEL_DEFS, NEUTRAL_LEVELS, TEMPLATES, getTemplate, type Levels } from '@/lib/templates';
+import { useSmk } from '@/lib/smk';
 import { Toaster } from '@/components/ui/sonner';
 
 const MAX_STEMS = 8;
@@ -73,6 +74,18 @@ export default function App() {
   };
 
   const filename = `pastry-${template.id}-master.wav`;
+
+  // SMK-25 knobs + transport (see lib/smk.ts). Bank A knobs 1–4 are the
+  // Fine-tune Levels — same language as Sprouts. REC re-runs Mix & Master.
+  const smk = useSmk((a) => {
+    if (a.type === 'play') { if (!playing) void togglePlay(); }
+    else if (a.type === 'stop') stop();
+    else if (a.type === 'record-toggle') { if (stems.length && !mixing) void mixAndMaster(); }
+    else if (a.type === 'knob') {
+      const def = LEVEL_DEFS[a.index];
+      if (def) { setLevels((l) => ({ ...l, [def.key]: Math.round(a.value * 2 * 100) / 100 })); stale(); }
+    }
+  });
   const save = (share: boolean) => {
     if (!master) return;
     const blob = audioBufferToWav(master);
@@ -91,6 +104,9 @@ export default function App() {
             <span className="ml-2 align-middle font-mono text-[9px] uppercase tracking-[0.25em] text-muted-foreground/60">Mix &amp; Master</span>
           </h1>
           <p className="mt-3 text-sm text-muted-foreground">Pick a sound, drop your stems, get a finished master.</p>
+          {smk === 'connected' && (
+            <p className="mt-2 font-mono text-[10px] uppercase tracking-[0.15em] text-primary">SMK on — knobs 1–4 are the Fine-tune levels, transport plays/stops, REC mixes</p>
+          )}
         </header>
 
         {/* 1. Template */}
@@ -163,9 +179,9 @@ export default function App() {
                       <span className="mr-1">Nudge</span>
                       {[-100, -10].map((ms) => (
                         <button key={ms} type="button" aria-label={`Move ${s.name} ${Math.abs(ms)} milliseconds earlier`} onClick={() => nudge(s.id, ms / 1000)}
-                          className="min-h-9 border border-border px-2 hover:text-foreground">{'\u2212'}{Math.abs(ms)}</button>
+                          className="min-h-9 border border-border px-2 hover:text-foreground">{'−'}{Math.abs(ms)}</button>
                       ))}
-                      <span aria-label={`${s.name} nudge`} className="min-w-16 text-center text-foreground">{s.offset < 0 ? '\u2212' : '+'}{Math.round(Math.abs(s.offset) * 1000)} ms</span>
+                      <span aria-label={`${s.name} nudge`} className="min-w-16 text-center text-foreground">{s.offset < 0 ? '−' : '+'}{Math.round(Math.abs(s.offset) * 1000)} ms</span>
                       {[10, 100].map((ms) => (
                         <button key={ms} type="button" aria-label={`Move ${s.name} ${ms} milliseconds later`} onClick={() => nudge(s.id, ms / 1000)}
                           className="min-h-9 border border-border px-2 hover:text-foreground">+{ms}</button>
