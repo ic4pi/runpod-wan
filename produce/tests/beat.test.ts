@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { CLAP, HAT_C, HAT_O, KEY_NAMES, KICK, SNARE, STEPS_PER_BAR, TEMPLATES, generateBeat, getTemplate, rng, type BeatPlan } from '../src/lib/beat/patterns';
+import { MAX_BPM, MIN_BPM, clampBpm, CLAP, HAT_C, HAT_O, KEY_NAMES, KICK, SNARE, STEPS_PER_BAR, TEMPLATES, generateBeat, getTemplate, rng, type BeatPlan } from '../src/lib/beat/patterns';
 import { BASS, LEADS, PADS } from '../src/lib/beat/sounds';
 import { ENGINES } from '../src/lib/beat/engines';
 
@@ -111,5 +111,28 @@ describe('beat generator', () => {
   it('the random generator is steady and in range', () => {
     const a = rng(7), b = rng(7);
     for (let i = 0; i < 50; i++) { const x = a(); expect(x).toBe(b()); expect(x).toBeGreaterThanOrEqual(0); expect(x).toBeLessThan(1); }
+  });
+
+  describe('tempo', () => {
+    it('uses the kit tempo unless told otherwise', () => {
+      TEMPLATES.forEach((t) => expect(generateBeat({ template: t, key: 0, bars: 8, seed: 1 }).bpm).toBe(t.bpm));
+    });
+    it('takes any tempo you set', () => {
+      expect(generateBeat({ template: getTemplate('house'), key: 0, bars: 8, seed: 1, bpm: 100 }).bpm).toBe(100);
+      expect(generateBeat({ template: getTemplate('trap'), key: 0, bars: 8, seed: 1, bpm: 87.6 }).bpm).toBe(88);
+    });
+    it('keeps tempo inside a playable range', () => {
+      expect(clampBpm(20)).toBe(MIN_BPM); expect(clampBpm(999)).toBe(MAX_BPM);
+      expect(clampBpm(NaN)).toBe(MIN_BPM); expect(clampBpm(Infinity)).toBe(MIN_BPM);
+      expect(generateBeat({ template: getTemplate('boom'), key: 0, bars: 4, seed: 1, bpm: 5 }).bpm).toBe(MIN_BPM);
+      expect(generateBeat({ template: getTemplate('boom'), key: 0, bars: 4, seed: 1, bpm: 5000 }).bpm).toBe(MAX_BPM);
+    });
+    it('plays the same notes at any tempo; only the speed changes', () => {
+      for (const t of TEMPLATES) {
+        const slow = generateBeat({ template: t, key: 5, bars: 8, seed: 3, bpm: 70 });
+        const fast = generateBeat({ template: t, key: 5, bars: 8, seed: 3, bpm: 170 });
+        expect({ ...slow, bpm: 0 }).toEqual({ ...fast, bpm: 0 });
+      }
+    });
   });
 });

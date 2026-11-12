@@ -76,7 +76,11 @@ export interface BeatPlan { bpm: number; bars: number; drums: Note[]; bass: Note
 
 const swingShift = (step: number, swing: number) => (step % 4 === 2 ? swing : 0);
 
-export function generateBeat(o: { template: KitTemplate; key: number; bars: number; seed: number }): BeatPlan {
+export const MIN_BPM = 60, MAX_BPM = 180;
+export const clampBpm = (x: number) => Math.max(MIN_BPM, Math.min(MAX_BPM, Math.round(Number.isFinite(x) ? x : 0) || MIN_BPM));
+
+/** `bpm` overrides the kit's own tempo. The notes are the same at any tempo; only the speed changes. */
+export function generateBeat(o: { template: KitTemplate; key: number; bars: number; seed: number; bpm?: number }): BeatPlan {
   const { template: t, bars } = o;
   const key = ((o.key % 12) + 12) % 12;
   const rand = rng(o.seed);
@@ -150,5 +154,5 @@ export function generateBeat(o: { template: KitTemplate; key: number; bars: numb
     });
   }
 
-  return { bpm: t.bpm, bars, drums, bass, pad, lead };
+  return { bpm: o.bpm === undefined ? t.bpm : clampBpm(o.bpm), bars, drums, bass, pad, lead };
 }
