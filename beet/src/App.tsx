@@ -39,7 +39,7 @@ const label = 'flex flex-col gap-1 font-mono text-[10px] uppercase tracking-[0.2
 const sigKey = (sig: TimeSig) => `${sig.beats}/${sig.unit}`;
 
 function download(blob: Blob, name: string) {
-  const url = URL.createObjectURL(url);
+  const url = URL.createObjectURL(blob);
   Object.assign(document.createElement('a'), { href: url, download: name }).click();
   setTimeout(() => URL.revokeObjectURL(url), 5000);
 }
