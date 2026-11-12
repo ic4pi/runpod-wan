@@ -1,4 +1,4 @@
-import { audible, entryStep, totalSteps, type Session } from './session';
+import { audible, DEFAULT_SIG, entryStep, totalSteps, type Session } from './session';
 import { getPreset } from './synth/presets';
 
 const PPQ = 480;
@@ -10,7 +10,7 @@ function vlq(n: number): number[] {
   return out;
 }
 const be32 = (n: number) => [(n >>> 24) & 255, (n >>> 16) & 255, (n >>> 8) & 255, n & 255];
-const be16 = (n: number) => [(n >>> 8) & 255, n & 255];
+const be16 = (n: number) => [(n >> 8) & 255, n & 255];
 const ascii = (s: string) => [...s].map((c) => (c.charCodeAt(0) < 128 ? c.charCodeAt(0) : 63));
 const chunk = (type: string, data: number[]) => [...ascii(type), ...be32(data.length), ...data];
 
@@ -27,11 +27,14 @@ function trackChunk(events: Ev[]): number[] {
 
 /** Standard MIDI file (format 1): a tempo track plus one track per audible track. Drums go on channel 10. */
 export function sessionToMidi(s: Session): Uint8Array {
-  const tracks = audible(s).filter((t) => t.notes.some((n) => n.step >= entryStep(t) && n.step < totalSteps(s)));
+  const tracks = audible(s).filter((t) => t.notes.some((n) => n.step >= entryStep(s, t) && n.step < totalSteps(s)));
   const us = Math.round(60_000_000 / s.bpm);
+  // time signature meta: numerator, log2(denominator), 24 clocks per metronome click, 8 32nd-notes per quarter
+  const sig = s.sig ?? DEFAULT_SIG;
+  const dd = sig.unit === 8 ? 3 : 2;
   const tempo: Ev[] = [
     { tick: 0, order: 0, bytes: [0xff, 0x51, 0x03, (us >> 16) & 255, (us >> 8) & 255, us & 255] },
-    { tick: 0, order: 1, bytes: [0xff, 0x58, 0x04, 4, 2, 24, 8] },
+    { tick: 0, order: 1, bytes: [0xff, 0x58, 0x04, sig.beats, dd, 24, 8] },
   ];
   const chunks = [trackChunk(tempo)];
   const melodicChannels = [0, 1, 2, 3, 4, 5, 6, 7, 8, 10, 11, 12, 13, 14, 15];
@@ -41,7 +44,7 @@ export function sessionToMidi(s: Session): Uint8Array {
     const name = ascii(t.name);
     const ev: Ev[] = [{ tick: 0, order: 0, bytes: [0xff, 0x03, name.length, ...name] }];
     for (const n of t.notes) {
-      if (n.step < entryStep(t) || n.step >= totalSteps(s)) continue;
+      if (n.step < entryStep(s, t) || n.step >= totalSteps(s)) continue;
       const vel = Math.max(1, Math.min(127, Math.round(n.vel)));
       const pitch = Math.max(0, Math.min(127, n.pitch));
       ev.push({ tick: n.step * TICK, order: 2, bytes: [0x90 | ch, pitch, vel] });
