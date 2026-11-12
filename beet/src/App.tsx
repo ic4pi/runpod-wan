@@ -9,8 +9,8 @@ import { DRUM_KEYS, PIANO_KEYS, useKeyboard } from '@/hooks/useKeyboard';
 import { useMidiInput } from '@/hooks/useMidiInput';
 import { Transport } from '@/lib/transport';
 import {
-  BAR_OPTIONS, MAX_TRACKS, STEPS_PER_BAR, defaultSession, entryStep, isDrumTrack, loadSession, newTrack, saveSession,
-  type Note, type Session, type Track,
+  BAR_OPTIONS, MAX_TRACKS, barSteps, defaultSession, entryStep, fitNotes, isDrumTrack, loadSession, newTrack, saveSession, totalSteps,
+  type Note, type Session, type TimeSig, type Track,
 } from '@/lib/session';
 import { maxLength, copyBar } from '@/lib/notes';
 import { CATEGORIES, PRESETS, getPreset, type Category } from '@/lib/synth/presets';
@@ -21,9 +21,19 @@ import { shareOrDownload } from '@/lib/audio/export';
 
 const DRUM_ORDER = ['Kick', 'Snare', 'Clap', 'Closed Hat', 'Open Hat', 'Tom', 'Rim', 'Crash'].map((n) => DRUMS.find((d) => d.name === n)!.pitch);
 const BASE_BY_CATEGORY: Record<Category, number> = { drums: 36, bass: 36, lead: 60, pad: 48, keys: 48 };
-const LENGTHS = [{ v: 1, l: '1/16' }, { v: 2, l: '1/8' }, { v: 4, l: '1/4' }, { v: 8, l: '1/2' }, { v: 16, l: '1 bar' }];
+const SIG_OPTIONS: { sig: TimeSig; label: string }[] = [
+  { sig: { beats: 4, unit: 4 }, label: '4/4' },
+  { sig: { beats: 3, unit: 4 }, label: '3/4' },
+  { sig: { beats: 2, unit: 4 }, label: '2/4' },
+  { sig: { beats: 5, unit: 4 }, label: '5/4' },
+  { sig: { beats: 6, unit: 8 }, label: '6/8' },
+  { sig: { beats: 7, unit: 8 }, label: '7/8' },
+];
+const FRACTIONS = [{ v: 1, l: '1/16' }, { v: 2, l: '1/8' }, { v: 4, l: '1/4' }, { v: 8, l: '1/2' }];
 const field = 'min-h-11 border border-border bg-card px-3 text-sm text-foreground focus-visible:outline-2 focus-visible:outline-primary';
 const label = 'flex flex-col gap-1 font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground';
+
+const sigKey = (sig: TimeSig) => `${sig.beats}/${sig.unit}`;
 
 function download(blob: Blob, name: string) {
   const url = URL.createObjectURL(blob);
@@ -67,7 +77,9 @@ export default function App() {
   const track = session.tracks.find((t) => t.id === selectedId) ?? session.tracks[0];
   const drum = track ? isDrumTrack(track) : false;
   const base = track ? bases[track.id] ?? BASE_BY_CATEGORY[getPreset(track.presetId).category] : 60;
-  const cols = session.bars * STEPS_PER_BAR;
+  const cols = totalSteps(session);
+  const bar = barSteps(session.sig);
+  const lengths = [...FRACTIONS, { v: bar, l: '1 bar' }];
   const pickedNote = track && picked ? track.notes.findIndex((n) => n.pitch === picked.pitch && n.step === picked.step) : -1;
 
   const patch = (id: string, p: Partial<Track>, record = false) =>
@@ -139,7 +151,11 @@ export default function App() {
     setPicked(null);
   };
 
-  const setBars = (bars: number) => apply((s) => ({ ...s, bars, tracks: s.tracks.map((t) => ({ ...t, startBar: Math.min(t.startBar, bars - 1), notes: t.notes.filter((n) => n.step < bars * STEPS_PER_BAR).map((n) => ({ ...n, len: Math.min(n.len, bars * STEPS_PER_BAR - n.step) })) })) }), true);
+  const setBars = (bars: number) => apply((s) => fitNotes({ ...s, bars }), true);
+
+  /** Switching meter re-grids the song: notes that no longer fit are dropped. */
+  const setSig = (sig: TimeSig) => apply((s) => fitNotes({ ...s, sig }), true);
+  useEffect(() => { if (noteLen > bar) setNoteLen(bar); }, [noteLen, bar]);
 
   const newProject = () => {
     if (!window.confirm('Start a new project? This deletes the current one.')) return;
@@ -199,6 +215,15 @@ export default function App() {
             BPM
             <input type="number" min={60} max={180} value={session.bpm} aria-label="BPM" className={`${field} w-20`}
               onChange={(e) => apply((s) => ({ ...s, bpm: Math.max(60, Math.min(180, Math.round(Number(e.target.value) || 92))) }))} />
+          </label>
+          <label className="flex items-center gap-2 font-mono text-[11px] uppercase tracking-[0.15em] text-muted-foreground">
+            Time
+            <select value={sigKey(session.sig)} aria-label="Time signature" className={field} onChange={(e) => {
+              const opt = SIG_OPTIONS.find((o) => sigKey(o.sig) === e.target.value);
+              if (opt) setSig(opt.sig);
+            }}>
+              {SIG_OPTIONS.map((o) => <option key={sigKey(o.sig)} value={sigKey(o.sig)}>{o.label}</option>)}
+            </select>
           </label>
           <label className="flex items-center gap-2 font-mono text-[11px] uppercase tracking-[0.15em] text-muted-foreground">
             Bars
@@ -266,7 +291,7 @@ export default function App() {
                 ))}
               </div>
               <div className="flex border border-border" role="group" aria-label="Note length">
-                {LENGTHS.map((l) => (
+                {lengths.map((l) => (
                   <button key={l.v} aria-pressed={noteLen === l.v} onClick={() => setNoteLen(l.v)}
                     className={`min-h-11 px-3 font-mono text-[11px] uppercase tracking-[0.1em] ${noteLen === l.v ? 'bg-foreground text-background' : 'text-muted-foreground hover:text-foreground'}`}>{l.l}</button>
                 ))}
@@ -303,8 +328,8 @@ export default function App() {
             )}
 
             <PianoRoll
-              notes={track.notes} bars={session.bars} drum={drum} base={base} noteLen={noteLen} tool={tool} picked={picked}
-              entry={entryStep(track)} getPosition={getPosition}
+              notes={track.notes} bars={session.bars} sig={session.sig} drum={drum} base={base} noteLen={noteLen} tool={tool} picked={picked}
+              entry={entryStep(session, track)} getPosition={getPosition}
               onChange={(notes) => patch(track.id, { notes }, true)}
               onPick={setPicked}
               onPreview={(p) => transport.preview(track, p)}
@@ -321,7 +346,7 @@ export default function App() {
                   {Array.from({ length: session.bars }, (_, b) => <option key={b} value={b}>{b + 1}</option>)}
                 </select>
               </label>
-              <Button variant="secondary" className="min-h-11" disabled={barFrom === barTo || barFrom >= session.bars || barTo >= session.bars} onClick={() => patch(track.id, { notes: copyBar(track.notes, barFrom, barTo) }, true)}>
+              <Button variant="secondary" className="min-h-11" disabled={barFrom === barTo || barFrom >= session.bars || barTo >= session.bars} onClick={() => patch(track.id, { notes: copyBar(track.notes, barFrom, barTo, bar) }, true)}>
                 <Copy className="mr-2 h-4 w-4" /> Copy
               </Button>
               <Button variant="ghost" className="min-h-11" onClick={duplicateTrack}>Duplicate track</Button>
@@ -330,7 +355,7 @@ export default function App() {
             </section>
 
             <p className="text-xs normal-case tracking-normal text-muted-foreground">
-              Tap a cell to add or remove a note. Keyboard: {drum ? 'A S D F G H J K play the drums' : 'A–L play notes, W E T Y U O P are sharps, Z and X change octave'}. Space plays and stops, Ctrl/Cmd+Z undoes. A plugged-in MIDI keyboard or pad plays the selected track. Turn on Rec to record into the loop.
+              Tap a cell to add or remove a note. The grid is 16th-notes grouped by beat and bar — the top ruler numbers every beat of every measure. Keyboard: {drum ? 'A S D F G H J K play the drums' : 'A–L play notes, W E T Y U O P are sharps, Z and X change octave'}. Space plays and stops, Ctrl/Cmd+Z undoes. A plugged-in MIDI keyboard or pad plays the selected track. Turn on Rec to record into the loop.
             </p>
           </>
         ) : (
