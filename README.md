@@ -1,12 +1,12 @@
-# 🍠 Produce Ecosystem
+# 🍠 Grocery Ecosystem
 
-**Produce** is a modular music creation platform built on web standards. Free hub with paid composition, recording, and mastering modules.
+**Grocery** is a modular music creation platform built on web standards. Free hub with paid composition, recording, and mastering modules.
 
 ---
 
 ## Quick Overview
 
-**Produce** (FREE) — 6-track mixer
+**Grocery** (FREE) — 6-track mixer
 - Record basic vocals (no effects)
 - Upload 5 backing tracks
 - Volume + pan mixing
@@ -15,7 +15,7 @@
 **Paid Modules** (one-time purchase):
 - 🎹 **Beet** — Synth composition (5 engines, timeline, patterns)
 - 🎤 **Sprouts** — Advanced vocal recording (effects, templates, layers)
-- 🎛️ **Bakery** — Mixing + mastering (EQ, compression, master processing)
+- 🎛️ **Pastry** — Mixing + mastering (EQ, compression, master processing)
 - 🎰 **Diced** — Sampler + loops (one-time now → subscription later with sound packs)
 
 **Grocer** — Education layer (integrated guidance + tutorials across all modules)
@@ -27,10 +27,10 @@
 ### Project Structure
 
 ```
-produce/           (FREE hub — main app)
+grocery/           (FREE hub — main app)
 sprouts/           (PAID module — advanced vocals)
 beet/              (PAID module — synth and drums)
-bakery/            (PAID module — mixing/mastering)
+pastry/            (PAID module — mixing/mastering)
 diced/             (PAID module — sampler/loops, planned)
 ```
 
@@ -40,8 +40,8 @@ diced/             (PAID module — sampler/loops, planned)
 # Install dependencies for all modules
 npm install
 
-# Run Produce hub in dev mode
-cd produce
+# Run Grocery hub in dev mode
+cd grocery
 npm run dev
 
 # Build for production
@@ -61,7 +61,7 @@ npm run build
 
 ## Module Details
 
-### Produce (Free Hub)
+### Grocery (Free Hub)
 - 1 vocal recording track (plain, no effects/templates)
 - 5 backing track slots (upload or import from Beet)
 - Volume + pan per track
@@ -75,7 +75,7 @@ npm run build
 - Effect inserts (reverb, compression, EQ)
 - Vocal templates for different genres
 - MIDI controller support
-- Export integration with Produce hub
+- Export integration with Grocery hub
 
 ### Beet (Paid)
 - 5 synth engines (Tone Basic, Wavetable, Custom OSC, Chiptune, Noise Perc)
@@ -83,9 +83,9 @@ npm run build
 - 8 simultaneous tracks
 - 50+ presets (drums, bass, leads, pads, atmosphere, percussion)
 - MIDI keyboard + controller support
-- WAV + MIDI export (ready for Bakery)
+- WAV + MIDI export (ready for Pastry)
 
-### Bakery (Paid)
+### Pastry (Paid)
 - Multi-track mixing
 - Per-track EQ, compression, effects
 - Master bus processing
@@ -102,26 +102,28 @@ npm run build
 
 ## Deployment
 
-**Production:** Vercel, one project per app, all built from this repo's `main` branch.
+**One Vercel project, one deployment** (`grocery`), built from this repo's `main` branch.
+`npm run build` builds all four apps and assembles one site:
 
-| Vercel project | Root directory | Access |
+| Address | App | Access |
 |---|---|---|
-| `produce` | `produce` | Public (free hub) |
-| `sprouts` | `sprouts` | Private until accounts and paywall exist |
-| `bakery` | `bakery` | Private until accounts and paywall exist |
-| `beet` | `beet` | Private until accounts and paywall exist |
+| `/` | Grocery (free hub) | Public |
+| `/pastry/` | Pastry (mix and master) | Locked until you own it |
+| `/beet/` | Beet (synth and drums) | Locked until you own it |
+| `/sprouts/` | Sprouts (vocals) | Locked until you own it |
+| `/account/` | Sign in and buy | Public |
 
-Each app has its own `vercel.json` (security headers, caching). There is no root `vercel.json`: Vercel rejects multi-project config there.
-Pushes to `main` deploy to production; other branches get preview deployments.
+`middleware.ts` does the locking. See `docs/ACCOUNTS_SETUP.md` for the settings it needs.
+Pushes to `main` go to production; other branches get a preview of the whole site.
 
 ```bash
-cd <app> && npm ci && npm run build   # same build Vercel runs
+npm ci && npm run build   # same build Vercel runs; output is in dist/
 ```
 
 ## Pricing Model
 
 **Free Tier:**
-- Produce hub forever
+- Grocery hub forever
 - 6 tracks, basic mixing, save locally
 
 **Paid Modules:**
@@ -137,9 +139,9 @@ cd <app> && npm ci && npm run build   # same build Vercel runs
 
 ## Documentation
 
-- **Produce Hub:** See `produce/README.md`
+- **Grocery Hub:** See `grocery/README.md`
 - **Sprouts:** See `sprouts/README.md`
-- **Integration Guide:** See `PRODUCE_INTEGRATION.md`
+- **Integration Guide:** See `GROCERY_INTEGRATION.md`
 
 ---
 
@@ -148,12 +150,12 @@ cd <app> && npm ci && npm run build   # same build Vercel runs
 Each module is a self-contained React app with:
 - Its own `package.json` + build config
 - Local IndexedDB database (module-namespaced)
-- Produce session export format (Produce-compatible metadata)
+- Grocery session export format (Grocery-compatible metadata)
 - Vercel deployment config
 
 Modules communicate via:
 - Export/import of WAV + metadata files
-- Shared `Produce` session format (44.1 kHz, 16-bit, stereo)
+- Shared `Grocery` session format (44.1 kHz, 16-bit, stereo)
 - No cross-module real-time communication
 
 ---

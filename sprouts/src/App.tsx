@@ -17,7 +17,7 @@ function Wordmark() {
     <h1 className="font-display text-xl font-medium tracking-tight text-foreground">
       SPROUTS
       <span className="text-primary">.</span>
-      <span className="ml-2 align-middle font-mono text-[9px] uppercase tracking-[0.25em] text-muted-foreground/60">Produce</span>
+      <span className="ml-2 align-middle font-mono text-[9px] uppercase tracking-[0.25em] text-muted-foreground/60">Grocery</span>
     </h1>
   );
 }

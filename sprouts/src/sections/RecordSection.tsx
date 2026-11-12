@@ -6,7 +6,7 @@ import {
 import { engine } from '@/lib/audio/engine';
 import { cancelBleed, makeDouble, mixLayers, mixStems, decodeBlob } from '@/lib/audio/render';
 import { downloadBlob, shareOrDownload } from '@/lib/audio/export';
-import { exportProduceBundle } from '@/lib/audio/exportProduce';
+import { exportGroceryBundle } from '@/lib/audio/exportGrocery';
 import { FX_LIST } from '@/lib/audio/fx';
 import { audioBufferToWav, formatBytes, formatDuration } from '@/lib/audio/wav';
 import { useSession } from '@/lib/session';
@@ -102,7 +102,7 @@ export function RecordSection() {
   const [saving, setSaving] = useState(false);
   const [nextRecordRole, setNextRecordRole] = useState<'adlib' | 'backup'>('adlib');
   const [bpm, setBpm] = useState(90);
-  const [exportingProduce, setExportingProduce] = useState(false);
+  const [exportingGrocery, setExportingGrocery] = useState(false);
   const [beat, setBeat] = useState<Beat | null>(null);
   const beatRef = useRef<Beat | null>(null);
   const [songBlob, setSongBlob] = useState<Blob | null>(null);
@@ -509,12 +509,12 @@ export function RecordSection() {
     remixTimer.current = window.setTimeout(() => void rerenderAll(layersRef.current, template, levels), 450);
   }, [syncLayers, rerenderAll, template, levels, stopPlayback]);
 
-  const handleProduceExport = useCallback(async () => {
+  const handleGroceryExport = useCallback(async () => {
     if (layersRef.current.length === 0 || !beatRef.current) return;
-    setExportingProduce(true);
+    setExportingGrocery(true);
     try {
       const name = `${template.name} · ${new Date().toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}`;
-      const { blob } = await exportProduceBundle({
+      const { blob } = await exportGroceryBundle({
         sessionName: name,
         bpm,
         template,
@@ -523,12 +523,12 @@ export function RecordSection() {
         beat: beatRef.current ? { buffer: beatRef.current.buffer, name: beatRef.current.name } : null,
       });
       downloadBlob(blob, `sprouts-${template.id}-session.zip`);
-      toast.success('Produce session exported — stems + session.json.');
+      toast.success('Grocery session exported — stems + session.json.');
     } catch (err) {
-      console.error('[levels] produce export failed', err);
-      toast.error('Produce export failed — try fewer layers.');
+      console.error('[levels] grocery export failed', err);
+      toast.error('Grocery export failed — try fewer layers.');
     } finally {
-      setExportingProduce(false);
+      setExportingGrocery(false);
     }
   }, [template, levels, bpm]);
 
@@ -863,12 +863,12 @@ export function RecordSection() {
                   className="w-16 border border-border bg-transparent px-2 py-1.5 text-center font-mono text-sm text-foreground focus-visible:outline-2 focus-visible:outline-primary"
                 />
                 <button
-                  onClick={handleProduceExport}
-                  disabled={exportingProduce || layers.length === 0}
+                  onClick={handleGroceryExport}
+                  disabled={exportingGrocery || layers.length === 0}
                   className="ml-auto flex min-h-11 items-center gap-2 border border-primary/60 px-4 py-2 font-mono text-[11px] uppercase tracking-[0.12em] text-primary transition-colors duration-150 hover:bg-primary/10 focus-visible:outline-2 focus-visible:outline-primary disabled:opacity-50"
                 >
-                  {exportingProduce ? <Loader2 className="h-4 w-4 animate-spin" /> : <Package className="h-4 w-4" />}
-                  Export to Produce
+                  {exportingGrocery ? <Loader2 className="h-4 w-4 animate-spin" /> : <Package className="h-4 w-4" />}
+                  Export to Grocery
                 </button>
               </div>
             )}
