@@ -13,6 +13,7 @@ import { forget, forgetAll, inspect, mixdown, play, type Player } from '@/lib/au
 import { formatDuration } from '@/lib/audio/wav';
 import { shareOrDownload } from '@/lib/audio/export';
 import { BeatMaker } from '@/components/BeatMaker';
+import { FreePlay } from '@/components/FreePlay';
 
 const newId = () => crypto.randomUUID();
 
@@ -70,7 +71,7 @@ export default function App() {
   const uploads = slots.filter((t): t is Track => !!t && t.origin === 'upload');
   const lengths = uploads.map((t) => t.duration);
   const lengthMismatch = uploads.length >= 2 && Math.max(...lengths) - Math.min(...lengths) > 0.05;
-  const fmtMs = (sec: number) => `${sec < 0 ? '\u2212' : '+'}${Math.round(Math.abs(sec) * 1000)} ms`;
+  const fmtMs = (sec: number) => `${sec < 0 ? '−' : '+'}${Math.round(Math.abs(sec) * 1000)} ms`;
 
   /** The beat maker hands over a finished beat; it takes the first empty backing slot. */
   const addBeat = (blob: Blob, name: string, duration: number) => {
@@ -180,6 +181,8 @@ export default function App() {
 
         <BeatMaker canAdd={hasFreeBacking} onAdd={addBeat} onPreviewStart={stopPlayback} startOpen={!slots.slice(1).some(Boolean)} />
 
+        <FreePlay />
+
         {lengthMismatch && (
           <p role="status" className="mt-4 border border-primary/40 bg-primary/5 p-3 text-sm text-foreground">
             Your uploaded tracks are different lengths ({Math.min(...lengths).toFixed(1)}s to {Math.max(...lengths).toFixed(1)}s).
@@ -234,7 +237,7 @@ export default function App() {
                     <span>{t.lead > 0.05 ? `first sound at ${t.lead.toFixed(2)}s` : 'starts right away'}</span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <Button size="sm" variant="secondary" aria-label={`Move track ${i + 1} earlier by 10 milliseconds`} onClick={() => nudgeBy(i, -0.01)}>{'\u2212'}10</Button>
+                    <Button size="sm" variant="secondary" aria-label={`Move track ${i + 1} earlier by 10 milliseconds`} onClick={() => nudgeBy(i, -0.01)}>{'−'}10</Button>
                     <Slider min={-2000} max={2000} step={5} value={[Math.round(t.offset * 1000)]} aria-label={`Nudge track ${i + 1}`}
                       onValueChange={([v]) => nudgeTo(i, v / 1000)} onValueCommit={() => restartIfPlaying()} />
                     <Button size="sm" variant="secondary" aria-label={`Move track ${i + 1} later by 10 milliseconds`} onClick={() => nudgeBy(i, 0.01)}>+10</Button>
