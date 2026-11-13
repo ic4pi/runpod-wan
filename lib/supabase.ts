@@ -28,6 +28,25 @@ export async function listOwned(d: Deps, token: string): Promise<string[]> {
   return rows.map((x) => x.module).filter((m): m is string => typeof m === 'string');
 }
 
+export interface BeatLicenseRow {
+  id: string;
+  beat_id: string;
+  beat_title: string;
+  producer: string;
+  license_version: string;
+  created_at: string;
+}
+
+/** RLS limits this read to the signed-in buyer. */
+export async function getBeatLicense(d: Deps, token: string, beatId: string): Promise<BeatLicenseRow | null> {
+  const r = await d.fetch(`${d.env.SUPABASE_URL}/rest/v1/grocery_beat_licenses?select=id,beat_id,beat_title,producer,license_version,created_at&beat_id=eq.${encodeURIComponent(beatId)}&limit=1`, {
+    headers: { apikey: d.env.SUPABASE_ANON_KEY!, Authorization: `Bearer ${token}` },
+  });
+  if (!r.ok) throw new Error(`supabase beat license ${r.status}`);
+  const rows = (await r.json()) as BeatLicenseRow[];
+  return rows[0] ?? null;
+}
+
 export async function passwordLogin(d: Deps, email: string, password: string): Promise<SupaSession | null> {
   const r = await d.fetch(`${d.env.SUPABASE_URL}/auth/v1/token?grant_type=password`, {
     method: 'POST', headers: json({ apikey: d.env.SUPABASE_ANON_KEY! }), body: JSON.stringify({ email, password }),
@@ -73,6 +92,16 @@ export async function grantEntitlement(d: Deps, row: { user_id: string; module: 
     body: JSON.stringify({ ...row, source: 'stripe' }),
   });
   if (!r.ok) throw new Error(`grant failed ${r.status}`);
+}
+
+/** Server-only. One verified lease per buyer and beat; safe on webhook retry. */
+export async function grantBeatLicense(d: Deps, row: { user_id: string; beat_id: string; beat_title: string; producer: string; stripe_session_id: string; amount_cents: number; license_version: string }): Promise<void> {
+  const r = await d.fetch(`${d.env.SUPABASE_URL}/rest/v1/grocery_beat_licenses?on_conflict=user_id,beat_id`, {
+    method: 'POST',
+    headers: json({ ...service(d), Prefer: 'resolution=ignore-duplicates,return=minimal' }),
+    body: JSON.stringify(row),
+  });
+  if (!r.ok) throw new Error(`beat license grant failed ${r.status}`);
 }
 
 /** Server-only. Records that a Stripe event was handled. */

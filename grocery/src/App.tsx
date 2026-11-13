@@ -1,298 +1,275 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Download, FilePlus, Mic, Play, Square, Trash2, Upload } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Check, Download, Loader2, Pause, Play } from 'lucide-react';
 import { toast } from 'sonner';
 import { Toaster } from '@/components/ui/sonner';
-import { Button } from '@/components/ui/button';
-import { Slider } from '@/components/ui/slider';
-import {
-  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
-  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
-import { MAX_NUDGE, clearSession, emptySlots, loadSession, saveSession, type Slots, type Track } from '@/lib/store';
-import { forget, forgetAll, inspect, mixdown, play, type Player } from '@/lib/audio';
-import { formatDuration } from '@/lib/audio/wav';
-import { shareOrDownload } from '@/lib/audio/export';
-import { useSmk } from '@/lib/smk';
-import { BeatMaker } from '@/components/BeatMaker';
-import { FreePlay } from '@/components/FreePlay';
+import { CatalogView } from '@/components/mvp/CatalogView';
+import { AuthDialog } from '@/components/mvp/AuthDialog';
+import { BeatArt } from '@/components/mvp/BeatArt';
+import { beatHasAudio, CATALOG_BEATS, getCatalogBeat, type CatalogBeat } from '@/lib/catalog';
+import { audioContext, loadCatalogAudio } from '@/lib/mvp/audio';
+import { downloadBeatRelease, type BeatLicense } from '@/lib/mvp/release';
 
-const newId = () => crypto.randomUUID();
+type Stage = 'catalog' | 'beat';
+interface AccountState { loading: boolean; available: boolean; payments: boolean; email: string | null }
+
+const initialAccount: AccountState = { loading: true, available: false, payments: false, email: null };
+const money = (cents: number) => `$${(cents / 100).toFixed(0)}`;
+const keyName = (key: number) => ['C', 'C♯', 'D', 'D♯', 'E', 'F', 'F♯', 'G', 'G♯', 'A', 'A♯', 'B'][key];
 
 export default function App() {
-  const [slots, setSlots] = useState<Slots>(emptySlots());
-  const [ready, setReady] = useState(false);
-  const [playing, setPlaying] = useState(false);
-  const [recording, setRecording] = useState(false);
-  const [busy, setBusy] = useState(false);
-  const [confirmNew, setConfirmNew] = useState(false);
-  const player = useRef<Player | null>(null);
-  const recorder = useRef<MediaRecorder | null>(null);
-  const slotsRef = useRef(slots);
-  slotsRef.current = slots;
+  const [stage, setStage] = useState<Stage>('catalog');
+  const [selected, setSelected] = useState<CatalogBeat | null>(null);
+  const [account, setAccount] = useState<AccountState>(initialAccount);
+  const [license, setLicense] = useState<BeatLicense | null>(null);
+  const [previewId, setPreviewId] = useState<string | null>(null);
+  const [busy, setBusy] = useState('');
+  const [authOpen, setAuthOpen] = useState(false);
+  const [authReason, setAuthReason] = useState('Sign in to lease and download this beat.');
+  const playback = useRef<AudioBufferSourceNode | null>(null);
+  const playbackToken = useRef(0);
+  const audioCache = useRef(new Map<string, AudioBuffer>());
 
-  useEffect(() => { loadSession().then((s) => { setSlots(s); setReady(true); }); }, []);
-  useEffect(() => {
-    if (!ready) return;
-    const t = setTimeout(() => saveSession(slots), 400);
-    return () => clearTimeout(t);
-  }, [slots, ready]);
-  useEffect(() => { player.current?.update(slots); }, [slots]);
-
-  const hasAudio = slots.some(Boolean);
-
-  const stopPlayback = useCallback(() => {
-    player.current?.stop();
-    player.current = null;
-    setPlaying(false);
+  const stopPreview = useCallback(() => {
+    playbackToken.current += 1;
+    if (playback.current) {
+      playback.current.onended = null;
+      try { playback.current.stop(); } catch { /* already stopped */ }
+      playback.current.disconnect();
+      playback.current = null;
+    }
+    setPreviewId(null);
   }, []);
 
-  const startPlayback = useCallback(async (skipSlot?: number) => {
-    stopPlayback();
+  useEffect(() => () => stopPreview(), [stopPreview]);
+
+  const refreshAccount = useCallback(async () => {
     try {
-      const p = await play(slotsRef.current, skipSlot);
-      player.current = p;
-      setPlaying(true);
-      p.ended.then(() => { if (player.current === p) { player.current = null; setPlaying(false); } });
+      const response = await fetch('/api/me', { credentials: 'same-origin' });
+      const contentType = response.headers.get('content-type') ?? '';
+      if (!contentType.includes('application/json')) throw new Error('static');
+      const body = await response.json() as { email?: string; payments?: boolean; error?: string };
+      if (response.ok) setAccount({ loading: false, available: true, payments: !!body.payments, email: body.email ?? null });
+      else if (body.error === 'not_configured') setAccount({ loading: false, available: false, payments: false, email: null });
+      else setAccount({ loading: false, available: true, payments: !!body.payments, email: null });
     } catch {
-      toast.error('Could not play audio');
+      setAccount({ loading: false, available: false, payments: false, email: null });
     }
-  }, [stopPlayback]);
+  }, []);
 
-  const setTrack = (i: number, t: Track | null) =>
-    setSlots((s) => { const n = [...s]; n[i] = t; return n; });
-
-  const patch = (i: number, p: Partial<Track>) =>
-    setSlots((s) => { const n = [...s]; const t = n[i]; if (t) n[i] = { ...t, ...p }; return n; });
-
-  /** Moving a track while it plays restarts playback so you hear the new timing. */
-  const restartIfPlaying = () => { if (player.current) setTimeout(() => { void startPlayback(); }, 60); };
-  const nudgeTo = (i: number, seconds: number) => patch(i, { offset: Math.max(-MAX_NUDGE, Math.min(MAX_NUDGE, Math.round(seconds * 1000) / 1000)) });
-  const nudgeBy = (i: number, delta: number) => { nudgeTo(i, (slotsRef.current[i]?.offset ?? 0) + delta); restartIfPlaying(); };
-
-  const uploads = slots.filter((t): t is Track => !!t && t.origin === 'upload');
-  const lengths = uploads.map((t) => t.duration);
-  const lengthMismatch = uploads.length >= 2 && Math.max(...lengths) - Math.min(...lengths) > 0.05;
-  const fmtMs = (sec: number) => `${sec < 0 ? '−' : '+'}${Math.round(Math.abs(sec) * 1000)} ms`;
-
-  /** The beat maker hands over a finished beat; it takes the first empty backing slot. */
-  const addBeat = (blob: Blob, name: string, duration: number) => {
-    const free = slotsRef.current.findIndex((t, i) => i > 0 && !t);
-    if (free < 0) return;
-    stopPlayback();
-    setTrack(free, { id: newId(), name, kind: 'backing', blob, duration, volume: 0.8, pan: 0, offset: 0, lead: 0, origin: 'beat' });
-  };
-  const hasFreeBacking = slots.some((t, i) => i > 0 && !t);
-
-  const remove = (i: number) => {
-    const t = slots[i];
-    if (t) forget(t.id);
-    stopPlayback();
-    setTrack(i, null);
-  };
-
-  const addFile = async (i: number, file: File) => {
+  const loadLicense = useCallback(async (beatId: string): Promise<BeatLicense | null> => {
+    if (!account.email) return null;
     try {
-      const { duration, lead } = await inspect(file);
-      stopPlayback();
-      setTrack(i, {
-        id: newId(), name: file.name.replace(/\.[^.]+$/, ''), kind: 'backing',
-        blob: file, duration, volume: 0.8, pan: 0, offset: 0, lead, origin: 'upload',
-      });
-    } catch {
-      toast.error('That file is not audio this device can read');
-    }
+      const response = await fetch(`/api/beat-license?beat=${encodeURIComponent(beatId)}`, { credentials: 'same-origin' });
+      const body = await response.json() as { license?: BeatLicense; message?: string };
+      if (response.ok && body.license) { setLicense(body.license); return body.license; }
+      if (!response.ok && body.message) toast.error(body.message);
+    } catch { /* The next download or polling attempt retries. */ }
+    return null;
+  }, [account.email]);
+
+  const openBeat = useCallback((beat: CatalogBeat) => {
+    stopPreview();
+    setSelected(beat);
+    setLicense(null);
+    setStage('beat');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }, [stopPreview]);
+
+  useEffect(() => {
+    void refreshAccount();
+    const params = new URLSearchParams(location.search);
+    const requested = getCatalogBeat(params.get('beat') ?? params.get('paid') ?? params.get('cancelled'));
+    if (requested) openBeat(requested);
+    if (params.has('cancelled')) toast.error('Checkout cancelled. You were not charged.');
+    // URL selection is intentionally a mount-only action.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    if (selected && account.email) void loadLicense(selected.id);
+    else setLicense(null);
+  }, [selected, account.email, loadLicense]);
+
+  useEffect(() => {
+    const paid = new URLSearchParams(location.search).get('paid');
+    if (!paid || paid !== selected?.id || !account.email || license) return;
+    let attempts = 0;
+    let timer = 0;
+    let active = true;
+    const poll = async () => {
+      const owned = await loadLicense(paid);
+      attempts += 1;
+      if (active && !owned && attempts < 12) timer = window.setTimeout(poll, 2000);
+    };
+    void poll();
+    return () => { active = false; window.clearTimeout(timer); };
+  }, [selected, account.email, license, loadLicense]);
+
+  const getAudio = async (beat: CatalogBeat): Promise<AudioBuffer> => {
+    const cached = audioCache.current.get(beat.id);
+    if (cached) return cached;
+    const buffer = await loadCatalogAudio(beat);
+    audioCache.current.set(beat.id, buffer);
+    return buffer;
   };
 
-  const toggleRecord = async () => {
-    if (recording) { recorder.current?.stop(); return; }
+  const preview = async (beat: CatalogBeat) => {
+    if (previewId === beat.id) { stopPreview(); return; }
+    if (!beatHasAudio(beat)) return;
+    stopPreview();
+    setBusy(`preview:${beat.id}`);
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const rec = new MediaRecorder(stream);
-      const chunks: Blob[] = [];
-      rec.ondataavailable = (e) => chunks.push(e.data);
-      rec.onstop = async () => {
-        stream.getTracks().forEach((t) => t.stop());
-        stopPlayback();
-        setRecording(false);
-        const blob = new Blob(chunks, { type: rec.mimeType });
-        try {
-          const { duration, lead } = await inspect(blob);
-          const old = slotsRef.current[0];
-          if (old) forget(old.id);
-          setTrack(0, { id: newId(), name: 'Vocal', kind: 'vocal', blob, duration, volume: 1, pan: 0, offset: 0, lead, origin: 'rec' });
-        } catch {
-          toast.error('Recording could not be read');
-        }
-      };
-      recorder.current = rec;
-      rec.start();
-      setRecording(true);
-      // Backing tracks play while you record. Headphones recommended.
-      if (slotsRef.current.slice(1).some(Boolean)) startPlayback(0);
+      const buffer = await getAudio(beat);
+      const ctx = audioContext();
+      await ctx.resume();
+      const source = ctx.createBufferSource();
+      source.buffer = buffer;
+      source.connect(ctx.destination);
+      const token = playbackToken.current;
+      source.onended = () => { if (playbackToken.current === token) { playback.current = null; setPreviewId(null); } };
+      source.start(0, 0, Math.min(30, buffer.duration));
+      playback.current = source;
+      setPreviewId(beat.id);
     } catch {
-      toast.error('Microphone blocked. Allow it in your browser settings.');
-    }
-  };
-
-  const save = async () => {
-    setBusy(true);
-    try {
-      stopPlayback();
-      const wav = await mixdown(slots);
-      await shareOrDownload(wav, 'grocery-mixdown.wav', 'Grocery mixdown');
-    } catch {
-      toast.error('Mixdown failed');
+      toast.error('That beat file could not be played. Check the uploaded audio and try again.');
     } finally {
-      setBusy(false);
+      setBusy('');
     }
   };
 
-  const newProject = async () => {
-    stopPlayback();
-    forgetAll();
-    await clearSession();
-    setSlots(emptySlots());
-    setConfirmNew(false);
+  const download = async (beat: CatalogBeat, verified: BeatLicense) => {
+    setBusy('download');
+    try {
+      await downloadBeatRelease(beat, verified);
+      toast.success('Beat and license downloaded.');
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'The beat download failed. Try again.');
+    } finally {
+      setBusy('');
+    }
   };
 
-  // SMK-25 knobs + transport (see lib/smk.ts). Bank A knobs 1–6 ride the six
-  // track volumes; transport plays, stops, and toggles recording.
-  const smk = useSmk((a) => {
-    if (a.type === 'play') void startPlayback();
-    else if (a.type === 'stop') stopPlayback();
-    else if (a.type === 'record-toggle') void toggleRecord();
-    else if (a.type === 'knob' && a.index < 6) patch(a.index, { volume: Math.round(a.value * 1.5 * 100) / 100 });
-  });
+  const checkout = async (beat: CatalogBeat) => {
+    setBusy('checkout');
+    try {
+      const response = await fetch('/api/beat-checkout', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'same-origin',
+        body: JSON.stringify({ beat: beat.id }),
+      });
+      const body = await response.json() as { url?: string; message?: string };
+      if (response.ok && body.url) { location.assign(body.url); return; }
+      throw new Error(body.message || 'Checkout could not be opened.');
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Checkout could not be opened.');
+    } finally {
+      setBusy('');
+    }
+  };
+
+  const purchaseAction = async () => {
+    if (!selected) return;
+    if (!beatHasAudio(selected)) return toast.error('This beat is not available yet.');
+    if (account.loading) return toast.error('Still checking your account. Try again in a moment.');
+    const owned = license ?? await loadLicense(selected.id);
+    if (owned) return download(selected, owned);
+    if (!account.available) return toast.error('Checkout is unavailable in this preview. Your beat files can still be prepared.');
+    if (!account.email) {
+      setAuthReason(`Sign in to lease “${selected.title}” and download the beat with its license.`);
+      setAuthOpen(true);
+      return;
+    }
+    if (!account.payments) return toast.error('Beat checkout is not switched on yet.');
+    await checkout(selected);
+  };
+
+  const signOut = async () => {
+    await fetch('/api/auth', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'logout' }), credentials: 'same-origin' }).catch(() => null);
+    setAccount((current) => ({ ...current, email: null }));
+    setLicense(null);
+    toast.success('Signed out.');
+  };
+
+  const actionLabel = () => {
+    if (!selected) return '';
+    if (busy === 'checkout') return 'Opening secure checkout…';
+    if (busy === 'download') return 'Building your download…';
+    if (license) return 'Download beat + license';
+    if (!beatHasAudio(selected)) return 'Coming soon';
+    if (!account.email) return `Sign in to lease · ${money(selected.priceCents)}`;
+    return `Lease beat · ${money(selected.priceCents)}`;
+  };
 
   return (
-    <div className="min-h-dvh bg-background text-foreground">
-      <div className="mx-auto w-full max-w-2xl px-5 pb-32 pt-6">
-        <header className="flex items-center justify-between">
-          <h1 className="text-xl font-medium tracking-tight">
-            GROCERY<span className="text-primary">.</span>
-            <span className="ml-2 align-middle font-mono text-[9px] uppercase tracking-[0.25em] text-muted-foreground/60">Free</span>
-          </h1>
-          <div className="flex items-center gap-1">
-            {smk === 'connected' && (
-              <span className="font-mono text-[10px] uppercase tracking-[0.15em] text-primary">SMK on</span>
-            )}
-            <a
-              href="/account/"
-              className="inline-flex min-h-9 items-center px-3 text-sm text-muted-foreground underline-offset-4 hover:text-foreground hover:underline focus-visible:outline-2 focus-visible:outline-primary"
-            >
-              More modules
-            </a>
-            <Button variant="ghost" size="sm" onClick={() => (hasAudio ? setConfirmNew(true) : newProject())}>
-              <FilePlus className="mr-2 h-4 w-4" /> New project
-            </Button>
-          </div>
-        </header>
-
-        <p className="mt-4 text-sm text-muted-foreground">
-          Record a vocal, add up to 5 backing tracks, set levels, save the mixdown. One project at a time.
-        </p>
-
-        <BeatMaker canAdd={hasFreeBacking} onAdd={addBeat} onPreviewStart={stopPlayback} startOpen={!slots.slice(1).some(Boolean)} />
-
-        <FreePlay />
-
-        {lengthMismatch && (
-          <p role="status" className="mt-4 border border-primary/40 bg-primary/5 p-3 text-sm text-foreground">
-            Your uploaded tracks are different lengths ({Math.min(...lengths).toFixed(1)}s to {Math.max(...lengths).toFixed(1)}s).
-            Tracks exported from one project are normally exactly the same length. If one was trimmed at the start,
-            it will play too early. Use <strong>Nudge</strong> on that track to line it up, then press Play.
-          </p>
-        )}
-
-        <ul className="mt-6 space-y-3">
-          {slots.map((t, i) => (
-            <li key={i} className="border border-border bg-card p-4">
-              <div className="flex items-center gap-3">
-                <span className="w-6 font-mono text-xs text-muted-foreground">{i + 1}</span>
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm">{t ? t.name : i === 0 ? 'Vocal (record)' : 'Backing track (upload)'}</p>
-                  {t && <p className="font-mono text-[10px] text-muted-foreground">{formatDuration(t.duration)}</p>}
-                </div>
-                {i === 0 && (
-                  <Button size="sm" variant={recording ? 'destructive' : 'secondary'} onClick={toggleRecord}>
-                    {recording ? <><Square className="mr-2 h-4 w-4" /> Stop</> : <><Mic className="mr-2 h-4 w-4" /> {t ? 'Redo' : 'Record'}</>}
-                  </Button>
-                )}
-                {i > 0 && (
-                  <label className="inline-flex cursor-pointer items-center bg-secondary px-3 py-2 text-xs hover:bg-secondary/80">
-                    <Upload className="mr-2 h-4 w-4" /> {t ? 'Replace' : 'Add'}
-                    <input type="file" accept="audio/*" className="sr-only"
-                      onChange={(e) => { const f = e.target.files?.[0]; if (f) addFile(i, f); e.target.value = ''; }} />
-                  </label>
-                )}
-                {t && (
-                  <Button size="icon" variant="ghost" aria-label={`Remove track ${i + 1}`} onClick={() => remove(i)}>
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                )}
-              </div>
-              {t && (
-                <div className="mt-4 grid grid-cols-2 gap-6">
-                  <div>
-                    <p className="mb-2 font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground">Volume</p>
-                    <Slider min={0} max={1.5} step={0.01} value={[t.volume]} onValueChange={([v]) => patch(i, { volume: v })} />
-                  </div>
-                  <div>
-                    <p className="mb-2 font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground">Pan</p>
-                    <Slider min={-1} max={1} step={0.02} value={[t.pan]} onValueChange={([v]) => patch(i, { pan: v })} />
-                  </div>
-                </div>
-              )}
-              {t && (
-                <div className="mt-4">
-                  <div className="mb-2 flex flex-wrap items-center justify-between gap-x-3 font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
-                    <span>Nudge {fmtMs(t.offset)}</span>
-                    <span>{t.lead > 0.05 ? `first sound at ${t.lead.toFixed(2)}s` : 'starts right away'}</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Button size="sm" variant="secondary" aria-label={`Move track ${i + 1} earlier by 10 milliseconds`} onClick={() => nudgeBy(i, -0.01)}>{'−'}10</Button>
-                    <Slider min={-2000} max={2000} step={5} value={[Math.round(t.offset * 1000)]} aria-label={`Nudge track ${i + 1}`}
-                      onValueChange={([v]) => nudgeTo(i, v / 1000)} onValueCommit={() => restartIfPlaying()} />
-                    <Button size="sm" variant="secondary" aria-label={`Move track ${i + 1} later by 10 milliseconds`} onClick={() => nudgeBy(i, 0.01)}>+10</Button>
-                    <Button size="sm" variant="ghost" disabled={t.offset === 0} onClick={() => { nudgeTo(i, 0); restartIfPlaying(); }}>Reset</Button>
-                  </div>
-                </div>
-              )}
-            </li>
-          ))}
-        </ul>
-      </div>
-
-      <div
-        className="fixed inset-x-0 bottom-0 border-t border-border bg-background/95 backdrop-blur-sm"
-        style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
-      >
-        <div className="mx-auto flex max-w-2xl gap-3 px-5 py-3">
-          <Button className="flex-1" variant="secondary" disabled={!hasAudio || recording}
-            onClick={() => (playing ? stopPlayback() : startPlayback())}>
-            {playing ? <><Square className="mr-2 h-4 w-4" /> Stop</> : <><Play className="mr-2 h-4 w-4" /> Play</>}
-          </Button>
-          <Button className="flex-1" disabled={!hasAudio || recording || busy} onClick={save}>
-            <Download className="mr-2 h-4 w-4" /> {busy ? 'Mixing…' : 'Save mixdown'}
-          </Button>
+    <div className="min-h-dvh bg-[#080b0b] text-[#f4f4f4]">
+      <header className="border-b border-[#263331]">
+        <div className="mx-auto flex min-h-16 w-full max-w-[1500px] items-center justify-between gap-3 px-5 sm:px-8">
+          <button type="button" onClick={() => { stopPreview(); setStage('catalog'); }} className="cursor-pointer text-left text-xl font-semibold tracking-tight">GROCERY<span className="text-[#00948c]">.</span></button>
+          <nav aria-label="Products" className="flex items-center gap-1 sm:gap-3">
+            <a href="/sprouts/" className="hidden min-h-11 items-center px-2 text-sm text-[#a7b0ad] hover:text-[#f4f4f4] sm:flex">Sprouts</a>
+            <a href="/pastry/" className="hidden min-h-11 items-center px-2 text-sm text-[#a7b0ad] hover:text-[#f4f4f4] sm:flex">Pastry</a>
+            {account.available && !account.loading && (account.email
+              ? <button type="button" onClick={signOut} className="min-h-11 cursor-pointer px-3 text-sm text-[#a7b0ad] hover:text-[#f4f4f4]">Sign out</button>
+              : <button type="button" onClick={() => { setAuthReason('Sign in to lease or download your beats.'); setAuthOpen(true); }} className="min-h-11 cursor-pointer px-3 text-sm text-[#a7b0ad] hover:text-[#f4f4f4]">Sign in</button>)}
+          </nav>
         </div>
-      </div>
+      </header>
 
-      <AlertDialog open={confirmNew} onOpenChange={setConfirmNew}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Start a new project?</AlertDialogTitle>
-            <AlertDialogDescription>
-              The free version keeps one project. Starting a new one deletes the current project. Save the mixdown first if you want to keep it.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Keep current</AlertDialogCancel>
-            <AlertDialogAction onClick={newProject}>Delete and start new</AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      {stage === 'catalog' && (
+        <CatalogView
+          beats={CATALOG_BEATS}
+          previewId={previewId}
+          loadingId={busy.startsWith('preview:') ? busy.split(':')[1] : null}
+          onPreview={(beat) => void preview(beat)}
+          onOpen={openBeat}
+        />
+      )}
 
+      {stage === 'beat' && selected && (
+        <main className="mx-auto grid w-full max-w-[1300px] gap-10 px-5 pb-20 pt-6 sm:px-8 lg:grid-cols-[minmax(0,1fr)_350px] lg:pt-12">
+          <div>
+            <button type="button" onClick={() => { stopPreview(); setStage('catalog'); }} className="flex min-h-11 cursor-pointer items-center gap-2 text-sm text-[#a7b0ad] hover:text-[#f4f4f4]"><ArrowLeft className="h-4 w-4" /> Beat catalog</button>
+            <div className="mt-6 grid grid-cols-[96px_minmax(0,1fr)] items-center gap-5 sm:grid-cols-[180px_minmax(0,1fr)] sm:gap-8">
+              <BeatArt beat={selected} large />
+              <div className="min-w-0">
+                <p className="font-mono text-xs uppercase tracking-[0.2em] text-[#00948c]">{selected.genre} / {selected.producer}</p>
+                <h1 className="mt-3 break-words text-4xl font-semibold leading-none tracking-[-0.045em] sm:text-6xl">{selected.title}</h1>
+                <p className="mt-4 text-sm text-[#a7b0ad]">{selected.bpm} BPM · {keyName(selected.key)} · {money(selected.priceCents)} non-exclusive</p>
+              </div>
+            </div>
+
+            <section className="mt-10 border-y border-[#52615e] py-6">
+              <p className="font-mono text-xs uppercase tracking-wider text-[#a7b0ad]">Real recording preview</p>
+              <button type="button" onClick={() => void preview(selected)} disabled={!beatHasAudio(selected) || (!!busy && busy !== `preview:${selected.id}`)} className="mt-4 flex min-h-14 cursor-pointer items-center gap-3 rounded-2xl bg-[#f4f4f4] px-7 font-semibold text-[#080b0b] transition hover:bg-[#ffe600] disabled:cursor-not-allowed disabled:opacity-40">
+                {busy === `preview:${selected.id}` ? <Loader2 className="h-5 w-5 animate-spin" /> : previewId === selected.id ? <Pause className="h-5 w-5" /> : <Play className="h-5 w-5" />}
+                {previewId === selected.id ? 'Stop preview' : 'Play up to 30 seconds'}
+              </button>
+              {!beatHasAudio(selected) && <p className="mt-4 text-sm text-[#a7b0ad]">The real audio file has not been added to this slot yet.</p>}
+            </section>
+
+            <section className="mt-8 grid gap-3 sm:grid-cols-2">
+              <button type="button" onClick={() => void purchaseAction()} disabled={!beatHasAudio(selected) || !!busy} className="flex min-h-16 cursor-pointer items-center justify-center gap-3 rounded-2xl bg-[#ffe600] px-5 font-semibold text-[#080b0b] transition hover:bg-[#f4f4f4] disabled:cursor-not-allowed disabled:opacity-40">
+                {busy === 'checkout' || busy === 'download' ? <Loader2 className="h-5 w-5 animate-spin" /> : license ? <Download className="h-5 w-5" /> : null}{actionLabel()}
+              </button>
+              <a href="/sprouts/" className="flex min-h-16 items-center justify-center gap-3 rounded-2xl border border-[#52615e] px-5 font-semibold text-[#f4f4f4] transition hover:border-[#00948c]">Record vocals in Sprouts <ArrowRight className="h-5 w-5" /></a>
+            </section>
+          </div>
+
+          <aside className="h-fit border border-[#52615e] bg-[#101515] p-6 lg:sticky lg:top-8">
+            <p className="font-mono text-xs uppercase tracking-[0.2em] text-[#00948c]">What the lease includes</p>
+            <ul className="mt-5 space-y-4 text-sm leading-relaxed text-[#a7b0ad]">
+              <li className="flex gap-3"><Check className="mt-0.5 h-4 w-4 shrink-0 text-[#ffe600]" /> The original beat audio file.</li>
+              <li className="flex gap-3"><Check className="mt-0.5 h-4 w-4 shrink-0 text-[#ffe600]" /> One new commercial song.</li>
+              <li className="flex gap-3"><Check className="mt-0.5 h-4 w-4 shrink-0 text-[#ffe600]" /> Streaming, downloads, performances, and song-promotion videos.</li>
+              <li className="flex gap-3"><Check className="mt-0.5 h-4 w-4 shrink-0 text-[#ffe600]" /> A plain-English license with your purchase record.</li>
+            </ul>
+            <div className="mt-6 border-t border-[#52615e] pt-6 text-sm leading-relaxed text-[#a7b0ad]">
+              {license ? <p className="text-[#f4f4f4]">License verified.<br /><span className="break-all font-mono text-xs text-[#a7b0ad]">{license.id}</span></p> : <p>The producer keeps the beat. You keep your new lyrics and vocal. Beat credit is required; exclusive rights are not included.</p>}
+            </div>
+          </aside>
+        </main>
+      )}
+
+      <AuthDialog open={authOpen} reason={authReason} onClose={() => setAuthOpen(false)} onSuccess={refreshAccount} />
       <Toaster theme="dark" position="top-center" />
     </div>
   );

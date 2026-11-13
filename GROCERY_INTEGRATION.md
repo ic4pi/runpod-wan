@@ -1,233 +1,81 @@
 # Grocery Ecosystem Integration Guide
 
-**For builders of Sprouts (vocals) and Processed/Preserved (mixer)**
+## Current product boundaries
 
----
+- **Grocery:** real-audio beat catalog, non-exclusive leases, and licensed beat downloads.
+- **Sprouts:** vocal recording and vocal exports.
+- **Pastry:** mixing and mastering.
+- **Beet:** existing synth/drum code retained; its addition is delayed, not deleted.
 
-## Overview
+Do not move vocal recording into Grocery. Do not use Grocery's old, unused synthesizer files to create catalog inventory.
 
-**Grocery** is a three-app music creation suite:
+## Current handoff
 
-- 🍠 **Beet** — Synth + drum composition (done)
-- 🌱 **Sprouts** — Vocal recording + SFX (in development)
-- 🧀 **Processed/Preserved** — Multi-track mixing + mastering (in development)
-
-All apps work together seamlessly. This guide explains the data formats, APIs, and integration points.
-
----
-
-## Data Flow
-
-```
-Beet (synth)
-  ↓ exports stems (WAV) + metadata
-Processed/Preserved (mixer)
-  ↓ imports stems + MIDI data
-Processed/Preserved (mixer)
-  ↓ combines with Sprouts recordings
-  ↓ exports master mix
-Final Output (MP3 / WAV)
+```text
+Grocery
+  previews a real beat recording
+  sells a non-exclusive lease through Stripe
+  downloads the original beat + license ZIP
+        ↓
+Sprouts
+  imports the licensed beat
+  records and exports vocals
+        ↓
+Pastry
+  imports the beat and vocal audio
+  mixes, masters, and exports the finished song
 ```
 
----
+The handoff is file-based. Grocery links to `/sprouts/`; it does not silently create a Sprouts session or claim an automatic import that is not implemented.
 
-## Stem Export Format (Beet → Processed/Preserved)
+## Licensed beat ZIP
 
-**File:** `.wav` (44.1 kHz, 16-bit, stereo)
+After the buyer's license is returned by `api/beat-license.ts`, Grocery creates:
 
-**Metadata:** Each stem includes timing information:
+```text
+<beat-slug>.<original-audio-extension>
+LICENSE.txt
+purchase.json
+READ-ME.txt
+```
 
-```json
+`purchase.json` contains the database-backed license record: license ID, beat ID and title, producer, licensee, grant time, and terms version. `READ-ME.txt` directs the buyer to record vocals in Sprouts.
+
+The original beat remains producer-owned. The buyer's new lyrics and vocal performance remain the buyer's. The included license wording must be reviewed before commercial use.
+
+## Catalog activation
+
+Catalog entries live in `lib/beats.ts`. A slot becomes previewable and sellable only when it has a non-empty `audioUrl` pointing to a real recording.
+
+```ts
 {
-  "sessionName": "Song 1",
-  "bpm": 120,
-  "barCount": 8,
-  "exportedAt": 1699446789,
-  "tracks": [
-    {
-      "id": "track-1",
-      "name": "Kick",
-      "synthEngine": "tone-basic",
-      "presetName": "Deep Kick",
-      "startBar": 0,
-      "duration": 16.0,  // seconds (8 bars at 120 BPM)
-      "offsetSeconds": 0.0
-    },
-    {
-      "id": "track-2",
-      "name": "Bass",
-      "synthEngine": "tone-basic",
-      "presetName": "Sub Bass",
-      "startBar": 4,
-      "duration": 16.0,
-      "offsetSeconds": 8.0  // 4 bars * 2 seconds/bar at 120 BPM
-    }
-  ]
+  id: 'backseat-gospel',
+  // ...title, producer, genre, bpm, key, priceCents, art
+  audioUrl: '/beats/backseat-gospel.mp3'
 }
 ```
 
-**Key points:**
-- All stems are **same total duration** (barCount * seconds_per_bar)
-- `offsetSeconds` = (startBar * 60 / BPM / 4) — silence padding at start
-- No manual timing adjustments needed in Processed/Preserved
-- Stems are pre-aligned and ready to layer
+Place that file at `grocery/public/beats/backseat-gospel.mp3`. Missing files fail honestly; the app does not render replacement audio.
 
----
+## Payment and ownership boundary
 
-## MIDI Export Format (Beet → Processed/Preserved)
+- `api/beat-checkout.ts` reads the price and sellability from the server catalog.
+- `api/stripe-webhook.ts` verifies the Stripe signature and paid session before writing a lease.
+- `grocery_beat_licenses` is separate from module entitlements.
+- Buyer reads use the buyer token and row-level security.
+- Lease writes use the service-role key on the server only.
+- Duplicate buyer/beat pairs are idempotent, so webhook retries are safe.
+- Missing configuration or verification fails closed.
 
-**File:** `.mid` (Standard MIDI format)
+## Audio delivery
 
-**Per-track MIDI:**
-- Note on/off with velocity
-- Timing preserved from timeline
-- `offsetSeconds` encoded as delay before first note
+The current store uses the catalog `audioUrl` for both the 30-second preview and the licensed original-file download. If full recordings must not be publicly reachable, split these into:
 
-**Use case:** Re-synthesize or edit synth notes in Processed/Preserved.
+1. A public, limited preview file.
+2. A private original file delivered through an authorized server endpoint or short-lived signed URL after license verification.
 
----
+Do not describe private delivery as implemented until that endpoint and its authorization tests exist.
 
-## Vocal Recording Format (Sprouts → Processed/Preserved)
+## Module formats
 
-**Expected inputs from Sprouts:**
-
-```json
-{
-  "vocal_tracks": [
-    {
-      "id": "vocal-1",
-      "name": "Lead Vocal",
-      "file": "lead_vocal.wav",
-      "startBar": 0,
-      "offsetSeconds": 0.0,
-      "duration": 16.0,
-      "metadata": {
-        "recordedAt": 1699446800,
-        "sampleRate": 44100,
-        "channels": 2,
-        "effects": ["reverb", "compression"]  // optional
-      }
-    }
-  ]
-}
-```
-
-**Format:** 44.1 kHz, 16-bit WAV (same as Beet stems for consistency)
-
----
-
-## Processed/Preserved Integration Points
-
-**Input:**
-1. Import Beet stems (WAV + metadata JSON)
-2. Import Sprouts recordings (WAV + metadata JSON)
-3. Layer them on a timeline (all pre-aligned, no manual sync needed)
-
-**Processing:**
-- Apply EQ, compression, reverb per track
-- Master bus processing
-- Export final mix
-
-**Output:**
-- Master mix (WAV or MP3)
-- Optional: bounced stems (for re-import to Beet for re-mixing)
-
-**Key requirement:** All input stems must have **same duration** and **offsetSeconds** for automatic alignment.
-
----
-
-## Timing Synchronization
-
-**Rule:** All stems across all apps use the same BPM + bar count.
-
-**Example (120 BPM, 8 bars):**
-- 1 bar = 2 seconds
-- 8 bars = 16 seconds total
-- All stems (Beet, Sprouts) = 16 seconds duration
-- Track starting at bar 4 = 8 seconds of silence + 8 seconds of audio
-
-**Processed/Preserved automatically aligns** using `offsetSeconds` from metadata. No manual adjustment needed.
-
----
-
-## MIDI Controller Support
-
-**Beet supports:**
-- 6 buttons, 8 knobs, 2 wheels, 8 pads
-- Scale/arp selectors (octave 0 with shift)
-- Full hardware control
-
-**Sprouts should consider:**
-- Bluetooth MIDI input (if recording from hardware)
-- Same hardware controller mapping (for consistency across suite)
-
-**Processed/Preserved should consider:**
-- Knobs for real-time mixing (faders, gain, pan)
-- Pads for quick access to presets/scenes
-- Same controller protocol for unified workflow
-
----
-
-## File Organization
-
-**Recommended directory structure:**
-
-```
-grocery/
-├── beet/              # Synth app (live)
-│   ├── app/
-│   ├── docs/
-│   └── README.md
-├── sprouts/           # Vocal recording app (in dev)
-│   ├── app/
-│   ├── docs/
-│   └── README.md
-├── aged-preserved/    # Mixer app (in dev)
-│   ├── app/
-│   ├── docs/
-│   └── README.md
-├── GROCERY_INTEGRATION.md  # this file
-└── README.md          # umbrella guide
-```
-
----
-
-## Data Persistence
-
-**IndexedDB Naming Convention:**
-
-- Beet: database `'beet-studio'`
-- Sprouts: database `'sprouts-studio'`
-- Processed/Preserved: database `'aged-preserved-studio'`
-
-**Cross-app linking:**
-- Store session IDs in metadata so Processed/Preserved can reference Beet session
-- Example: `{ "source_beet_session": "abc123", ... }`
-
----
-
-## Browser Compatibility
-
-**All apps require:**
-- Chrome 90+, Firefox 88+, Safari 14+
-- Web Audio API support
-- IndexedDB support
-- (Optional) Web MIDI API for hardware controllers
-
----
-
-## Future Roadmap
-
-- **Grocer** (education app) — hints + music theory guidance (listens to all apps)
-- **Bluetooth MIDI** latency optimization across all apps
-- **Cloud sync** — optional save/share (future, optional)
-- **AI sound generation** — "describe a sound" → synth params (future)
-
----
-
-## Questions?
-
-Contact the Beet team or see `GROCERY_INTEGRATION.md` in the main grocery/ repo.
-
-Happy building! 🍠🌱🧀
-
+Sprouts, Pastry, and Beet retain their existing audio/session formats and module-specific documentation. This store refactor does not redesign those modules or change their recorder, mixer, MIDI, or session code.

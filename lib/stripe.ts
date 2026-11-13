@@ -1,5 +1,6 @@
 import type { Deps } from './env';
 import type { ModuleInfo } from './modules';
+import { BEAT_LICENSE_VERSION, type CatalogBeat } from './beats';
 
 /** Stripe Checkout session for one module. Plain REST, no SDK. */
 export async function createCheckout(d: Deps, m: ModuleInfo & { priceCents: number }, user: { id: string; email: string }, origin: string): Promise<string> {
@@ -15,6 +16,35 @@ export async function createCheckout(d: Deps, m: ModuleInfo & { priceCents: numb
     client_reference_id: user.id,
     'metadata[user_id]': user.id,
     'metadata[module]': m.id,
+  });
+  if (user.email) form.set('customer_email', user.email);
+  const r = await d.fetch('https://api.stripe.com/v1/checkout/sessions', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${d.env.STRIPE_SECRET_KEY}`, 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: form.toString(),
+  });
+  if (!r.ok) throw new Error(`stripe ${r.status}`);
+  const s = (await r.json()) as { url?: string };
+  if (!s.url) throw new Error('stripe returned no url');
+  return s.url;
+}
+
+/** Stripe Checkout for one beat lease. Prices come only from the server catalog. */
+export async function createBeatCheckout(d: Deps, beat: CatalogBeat, user: { id: string; email: string }, origin: string): Promise<string> {
+  const form = new URLSearchParams({
+    mode: 'payment',
+    'line_items[0][quantity]': '1',
+    'line_items[0][price_data][currency]': 'usd',
+    'line_items[0][price_data][unit_amount]': String(beat.priceCents),
+    'line_items[0][price_data][product_data][name]': `${beat.title} — non-exclusive beat lease`,
+    'line_items[0][price_data][product_data][description]': 'Record and release one new song. Beat credit required.',
+    success_url: `${origin}/?paid=${encodeURIComponent(beat.id)}`,
+    cancel_url: `${origin}/?cancelled=${encodeURIComponent(beat.id)}`,
+    client_reference_id: user.id,
+    'metadata[kind]': 'beat_lease',
+    'metadata[user_id]': user.id,
+    'metadata[beat_id]': beat.id,
+    'metadata[license_version]': BEAT_LICENSE_VERSION,
   });
   if (user.email) form.set('customer_email', user.email);
   const r = await d.fetch('https://api.stripe.com/v1/checkout/sessions', {

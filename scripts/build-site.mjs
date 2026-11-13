@@ -1,5 +1,5 @@
 // Builds every app and assembles one site:
-//   /            Grocery (free hub)
+//   /            Grocery (real-audio beat store)
 //   /pastry/     Pastry   } gated by middleware.ts
 //   /beet/       Beet     }
 //   /sprouts/    Sprouts  }

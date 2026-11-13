@@ -1,8 +1,9 @@
 import { defaultDeps } from '../lib/env';
 import { json } from '../lib/http';
 import { getModule, isBuyable } from '../lib/modules';
+import { getCatalogBeat } from '../lib/beats';
 import { verifyStripeSignature } from '../lib/stripe';
-import { grantEntitlement, recordEvent } from '../lib/supabase';
+import { grantBeatLicense, grantEntitlement, recordEvent } from '../lib/supabase';
 
 /**
  * Stripe calls this after a payment. It is the ONLY thing that grants a purchase,
@@ -28,8 +29,20 @@ export async function POST(request: Request): Promise<Response> {
     const paid = s.payment_status === 'paid';
     const userId = typeof meta.user_id === 'string' ? meta.user_id : '';
     const amount = typeof s.amount_total === 'number' ? s.amount_total : -1;
+    // Beat leases use their own table and exact server-side catalog price.
+    const beat = getCatalogBeat(meta.beat_id);
+    if (meta.kind === 'beat_lease' && paid && beat && /^[0-9a-f-]{36}$/i.test(userId) && amount >= beat.priceCents && typeof s.id === 'string') {
+      try {
+        await grantBeatLicense(d, {
+          user_id: userId, beat_id: beat.id, beat_title: beat.title, producer: beat.producer,
+          stripe_session_id: s.id, amount_cents: amount, license_version: meta.license_version || 'grocery-nonexclusive-v1',
+        });
+      } catch {
+        return json({ error: 'grant_failed' }, 500);
+      }
+    }
     // Grant only a fully paid, correctly priced purchase of a real module for a real user id.
-    if (paid && isBuyable(m) && /^[0-9a-f-]{36}$/i.test(userId) && amount >= m.priceCents && typeof s.id === 'string') {
+    if (meta.kind !== 'beat_lease' && paid && isBuyable(m) && /^[0-9a-f-]{36}$/i.test(userId) && amount >= m.priceCents && typeof s.id === 'string') {
       try {
         await grantEntitlement(d, { user_id: userId, module: m.id, stripe_session_id: s.id, amount_cents: amount });
       } catch {

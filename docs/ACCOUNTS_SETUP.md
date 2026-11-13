@@ -1,30 +1,53 @@
-# Accounts and paywall: setup
+# Accounts, beat leases, and paywall: setup
 
-How it works: one site. Grocery is free at `/`. Pastry, Beet and Sprouts live at `/pastry/`, `/beet/`, `/sprouts/`
-and are locked by `middleware.ts`: before any file is served, the visitor must be signed in AND own that module.
-Anything unclear (missing settings, Supabase down, bad cookie) means locked. Purchases are granted only by a
-signature-verified Stripe webhook (`api/stripe-webhook.ts`), never by the browser.
+One deployment serves Grocery at `/`, Sprouts at `/sprouts/`, Pastry at `/pastry/`, the retained Beet module at `/beet/`, and Account at `/account/`.
 
-Prices follow contribution to Grocery: Pastry $5.99, Beet $4.99, Sprouts $3.99. Diced is not for sale yet.
-Change them in `lib/modules.ts` (the server is the only source of prices).
+Grocery is the real-audio beat store. Sprouts handles vocal recording. Pastry handles mixing and mastering. Beet's addition is delayed; its code remains in the repository.
+
+Paid module routes are locked by `middleware.ts`: before any file is served, the visitor must be signed in and own that module. Anything unclear—missing settings, Supabase down, or a bad cookie—means locked. Purchases are granted only by the signature-verified Stripe webhook (`api/stripe-webhook.ts`), never by the browser.
+
+Module prices are set in `lib/modules.ts`. Beat prices and availability are set separately in `lib/beats.ts`; the server is authoritative for both.
 
 ## 1. Database (Supabase project `autobuild`)
-Easiest: paste `supabase/run-this-once.sql` into the Supabase SQL Editor and press Run. It does everything below in one go and is safe to repeat. (The two numbered files below are the same thing split in two.)
 
-Run `supabase/migrations/20261111000000_produce_entitlements.sql` once in the Supabase SQL editor.
-Then run `supabase/migrations/20261112000000_rename_bakery_to_pastry.sql` (it renames the Bakery value to Pastry; run both files, in order).
-The first file adds two tables: `produce_entitlements` (who owns what; customers can only read their own rows) and
-`produce_stripe_events` (so a retried payment counts once). Nothing existing is changed.
+Easiest: paste `supabase/run-this-once.sql` into the Supabase SQL Editor and press Run. It is safe to repeat.
 
-Note: Supabase logins are shared across the whole project, so Grocery customers are also users of `autobuild`.
+The combined script creates:
 
-## 2. Supabase sign-in settings
-Authentication > Providers > Email: keep "Confirm email" on (customers confirm before first sign-in).
-Authentication > URL Configuration: set Site URL to your production address.
-Supabase's built-in email sender is rate limited; for real launch add your own SMTP provider.
+- `produce_entitlements` — who owns which module; customers can read only their own rows.
+- `produce_stripe_events` — idempotent Stripe event processing.
+- `grocery_beat_licenses` — verified non-exclusive beat leases; customers can read only their own rows.
 
-## 3. Environment variables (Vercel > project `grocery` > Settings > Environment Variables)
-Add these yourself in the Vercel dashboard. Never paste secrets into chat or commit them.
+The equivalent individual migrations are:
+
+1. `supabase/migrations/20261111000000_produce_entitlements.sql`
+2. `supabase/migrations/20261112000000_rename_bakery_to_pastry.sql`
+3. `supabase/migrations/20261113000000_beat_licenses.sql`
+
+Supabase logins are shared across the whole project, so Grocery customers are also users of `autobuild`.
+
+## 2. Add real beat recordings
+
+No real recordings are activated by default. Empty slots say **Coming soon** and cannot be previewed, purchased, or downloaded.
+
+For each beat:
+
+1. Add the mastered file under `grocery/public/beats/`.
+2. Add its `audioUrl` to the matching entry in `lib/beats.ts`, for example `audioUrl: '/beats/backseat-gospel.mp3'`.
+3. Verify title, producer credit, price, and license wording.
+4. Test preview, checkout, webhook grant, and licensed ZIP download.
+
+The current code uses the same public URL for preview and licensed download. Add separate public previews and private full-file delivery before launch if the original recordings must not be publicly reachable.
+
+## 3. Supabase sign-in settings
+
+- Authentication > Providers > Email: keep **Confirm email** on so customers confirm before first sign-in.
+- Authentication > URL Configuration: set Site URL to the production address.
+- Supabase's built-in email sender is rate limited; add an SMTP provider for a real launch.
+
+## 4. Environment variables (Vercel > project `grocery` > Settings > Environment Variables)
+
+Add these in the Vercel dashboard. Never paste secrets into chat or commit them.
 
 | Name | Where to find it | Secret? |
 |---|---|---|
@@ -32,16 +55,32 @@ Add these yourself in the Vercel dashboard. Never paste secrets into chat or com
 | `SUPABASE_ANON_KEY` | same page, the `anon` / publishable key | no |
 | `SUPABASE_SERVICE_ROLE_KEY` | same page, `service_role` key | YES, server only |
 | `SESSION_SECRET` | make one: `openssl rand -base64 48` | YES |
-| `STRIPE_SECRET_KEY` | Stripe > Developers > API keys (start with the `sk_test_` key) | YES |
-| `STRIPE_WEBHOOK_SECRET` | Stripe > Developers > Webhooks > your endpoint > Signing secret | YES |
-| `SITE_URL` (optional) | your public address, e.g. `https://yourdomain.com` | no |
+| `STRIPE_SECRET_KEY` | Stripe > Developers > API keys; start with `sk_test_` | YES |
+| `STRIPE_WEBHOOK_SECRET` | Stripe > Developers > Webhooks > endpoint > Signing secret | YES |
+| `SITE_URL` (optional) | public address, for example `https://yourdomain.com` | no |
 
-Until `SUPABASE_URL`, `SUPABASE_ANON_KEY` and `SESSION_SECRET` are set, all paid modules stay locked.
-Until the Stripe keys and service-role key are set, the Buy buttons say "Payments open soon".
+Until `SUPABASE_URL`, `SUPABASE_ANON_KEY`, and `SESSION_SECRET` are set, paid modules stay locked. Until the Stripe keys and service-role key are set, checkout stays unavailable. Beat downloads also require a database-backed verified license.
 
-## 4. Stripe
+## 5. Stripe
+
 Create an endpoint at `https://<your-site>/api/stripe-webhook` listening for `checkout.session.completed`.
-Use test mode first (card 4242 4242 4242 4242). Switch to live keys only after a full test purchase unlocks a module.
 
-## 5. Going live
-There is one Vercel project (`grocery`). Add the settings above to it and redeploy. Until they are set, paid apps stay locked and `/account/` says paid modules are coming soon.
+Use test mode first. Test both flows separately:
+
+1. A module purchase unlocks only that module.
+2. An available beat purchase grants only that beat's lease, then enables its licensed ZIP download.
+
+The webhook must verify the signature, paid status, catalog item, amount, user, and session before granting anything. Retried events must not create duplicate ownership rows.
+
+Switch to live keys only after the complete test purchase, webhook grant, buyer-only license read, and download all pass.
+
+## 6. Going live
+
+1. Add the real beat recordings and activate their `audioUrl` values.
+2. Run the SQL setup, including the beat-license table.
+3. Add the environment variables and redeploy.
+4. Complete Stripe test verification.
+5. Review producer credit and license wording with the owner and qualified legal counsel.
+6. Decide whether private full-file delivery is required.
+
+The included license text is an implementation draft, not legal advice.

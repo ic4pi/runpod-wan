@@ -6,27 +6,26 @@
 
 @layer base {
   :root {
-    /* Dark-first console palette — near-black with a navy undertone,
-       warm off-white ink, one amber accent used sparingly. */
-    --background: 240 8% 4%;
-    --foreground: 40 20% 94%;
-    --card: 240 8% 6%;
-    --card-foreground: 40 20% 94%;
-    --popover: 240 8% 6%;
-    --popover-foreground: 40 20% 94%;
-    --primary: 36 93% 56%;
-    --primary-foreground: 240 10% 6%;
-    --secondary: 240 5% 12%;
-    --secondary-foreground: 40 20% 94%;
-    --muted: 240 5% 12%;
-    --muted-foreground: 240 4% 58%;
-    --accent: 36 93% 56%;
-    --accent-foreground: 240 10% 6%;
+    /* Ink-black studio, warm off-white type, restrained teal and yellow signals. */
+    --background: 180 14% 4%;
+    --foreground: 60 9% 96%;
+    --card: 165 14% 7%;
+    --card-foreground: 60 9% 96%;
+    --popover: 165 14% 7%;
+    --popover-foreground: 60 9% 96%;
+    --primary: 60 100% 50%;
+    --primary-foreground: 180 14% 4%;
+    --secondary: 165 14% 12%;
+    --secondary-foreground: 60 9% 96%;
+    --muted: 165 14% 12%;
+    --muted-foreground: 150 6% 67%;
+    --accent: 174 100% 29%;
+    --accent-foreground: 60 9% 96%;
     --destructive: 0 72% 55%;
-    --destructive-foreground: 40 20% 94%;
-    --border: 240 6% 14%;
-    --input: 240 6% 14%;
-    --ring: 36 93% 56%;
+    --destructive-foreground: 60 9% 96%;
+    --border: 160 16% 20%;
+    --input: 160 16% 20%;
+    --ring: 60 100% 50%;
     --radius: 0rem;
   }
 }

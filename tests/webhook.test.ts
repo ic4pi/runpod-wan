@@ -72,7 +72,7 @@ describe('Stripe webhook', () => {
     for (const [module, amount] of [['beet', 499], ['sprouts', 399]] as const) {
       const f = ok();
       await call(event({ amount_total: amount }, { module }), f);
-      expect(JSON.parse(String(grants(f)[0].init?.body)).module).toBe(module);
+      expect(JSON.parse(String(grants(f)[0].init?.body))).module).toBe(module);
     }
   });
 
@@ -106,5 +106,59 @@ describe('Stripe webhook', () => {
     setEnv({ STRIPE_WEBHOOK_SECRET: undefined });
     expect((await call(event(), ok())).status).toBe(503);
     void res;
+  });
+
+  describe('beat leases', () => {
+    const beatEvent = (over: Record<string, unknown> = {}, meta: Record<string, string> = {}) => event(
+      { amount_total: 1900, ...over },
+      { kind: 'beat_lease', beat_id: 'backseat-gospel', license_version: 'grocery-nonexclusive-v1', ...meta },
+    );
+    const beatGrants = (f: ReturnType<typeof fakeFetch>) => f.calls.filter((c) => c.url.includes('grocery_beat_licenses'));
+
+    it('grants a signed, paid lease into the separate beat-license table', async () => {
+      const f = ok();
+      expect((await call(beatEvent(), f)).status).toBe(200);
+      expect(beatGrants(f)).toHaveLength(1);
+      expect(grants(f)).toHaveLength(0);
+      const grant = beatGrants(f)[0];
+      expect(JSON.parse(String(grant.init?.body))).toEqual({
+        user_id: USER_ID,
+        beat_id: 'backseat-gospel',
+        beat_title: 'Backseat Gospel',
+        producer: 'Grocery',
+        stripe_session_id: 'cs_1',
+        amount_cents: 1900,
+        license_version: 'grocery-nonexclusive-v1',
+      });
+      expect((grant.init?.headers as Record<string, string>).Authorization).toBe('Bearer service-key');
+      expect((grant.init?.headers as Record<string, string>).Prefer).toContain('ignore-duplicates');
+    });
+
+    it.each([
+      ['unpaid', beatEvent({ payment_status: 'unpaid' })],
+      ['underpaid', beatEvent({ amount_total: 100 })],
+      ['unknown beat', beatEvent({}, { beat_id: 'unknown' })],
+      ['bad user', beatEvent({}, { user_id: 'not-a-user' })],
+      ['missing session', beatEvent({ id: undefined })],
+    ])('grants no lease when %s', async (_name, ev) => {
+      const f = ok();
+      expect((await call(ev, f)).status).toBe(200);
+      expect(beatGrants(f)).toHaveLength(0);
+      expect(grants(f)).toHaveLength(0);
+    });
+
+    it('does not let a beat event grant a module, or a module event grant a lease', async () => {
+      const beatFetch = ok();
+      await call(beatEvent({}, { module: 'pastry' }), beatFetch);
+      expect(grants(beatFetch)).toHaveLength(0);
+      const moduleFetch = ok();
+      await call(event({ amount_total: 1900 }, { beat_id: 'backseat-gospel' }), moduleFetch);
+      expect(beatGrants(moduleFetch)).toHaveLength(0);
+    });
+
+    it('asks Stripe to retry when a lease grant fails', async () => {
+      const f = fakeFetch((u) => u.includes('grocery_beat_licenses') ? new Response('x', { status: 500 }) : undefined);
+      expect((await call(beatEvent(), f)).status).toBe(500);
+    });
   });
 });

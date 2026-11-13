@@ -1,174 +1,103 @@
-# 🍠 Grocery Ecosystem
+# Grocery Ecosystem
 
-**Grocery** is a modular music creation platform built on web standards. Free hub with paid composition, recording, and mastering modules.
+Grocery is a modular music platform built with React, TypeScript, Vite, and Web Audio.
 
----
+## Product lanes
 
-## Quick Overview
+- **Grocery** — real-audio beat store. Preview recordings, buy a non-exclusive lease, and download the beat with its license.
+- **Sprouts** — vocal recording, layered takes, effects, and vocal exports.
+- **Pastry** — mixing and mastering.
+- **Beet** — existing synth/drum module retained in the repository. Its addition is delayed, not deleted.
+- **Diced** — planned sampler/loop module; not for sale.
 
-**Grocery** (FREE) — 6-track mixer
-- Record basic vocals (no effects)
-- Upload 5 backing tracks
-- Volume + pan mixing
-- Save + download
+Grocery does not duplicate Sprouts' recorder and does not use synthesized or procedurally generated fallback audio as store inventory.
 
-**Paid Modules** (one-time purchase):
-- 🎹 **Beet** — Synth composition (5 engines, timeline, patterns)
-- 🎤 **Sprouts** — Advanced vocal recording (effects, templates, layers)
-- 🎛️ **Pastry** — Mixing + mastering (EQ, compression, master processing)
-- 🎰 **Diced** — Sampler + loops (one-time now → subscription later with sound packs)
+## Grocery buyer flow
 
-**Grocer** — Education layer (integrated guidance + tutorials across all modules)
+1. Browse ten catalog slots.
+2. Preview an available recording for up to 30 seconds.
+3. Sign in only to lease or download.
+4. Pay through server-created Stripe Checkout.
+5. A signature-verified Stripe webhook grants the lease in Supabase.
+6. Download the original audio, `LICENSE.txt`, `purchase.json`, and `READ-ME.txt` as a ZIP.
+7. Record vocals in Sprouts and finish the song in Pastry.
 
----
+Every slot currently requires a real `audioUrl` before it becomes available. Empty slots say **Coming soon** and cannot be previewed or sold.
+
+### Activate a catalog slot
+
+1. Add the real recording under `grocery/public/beats/`.
+2. Set its `audioUrl` in `lib/beats.ts`, for example:
+
+   ```ts
+   audioUrl: '/beats/backseat-gospel.mp3'
+   ```
+
+3. Verify its title, producer credit, BPM, key, and server-side price.
+4. Run all tests and the production build.
+
+The current implementation uses the same public URL for preview and licensed download. Before commercial launch, add separate public previews and private full-file delivery if raw catalog URLs must be protected.
+
+## Project structure
+
+```text
+grocery/       Beat store at /
+sprouts/       Vocal recording at /sprouts/
+pastry/        Mixing and mastering at /pastry/
+beet/          Retained module at /beet/; addition delayed
+account/       Account and module checkout at /account/
+api/           Auth, Stripe Checkout, webhooks, and license endpoints
+lib/           Server-authoritative catalog, module, and access logic
+supabase/      Entitlement and beat-license migrations
+scripts/       Multi-app production build
+```
 
 ## Development
 
-### Project Structure
-
-```
-grocery/           (FREE hub — main app)
-sprouts/           (PAID module — advanced vocals)
-beet/              (PAID module — synth and drums)
-pastry/            (PAID module — mixing/mastering)
-diced/             (PAID module — sampler/loops, planned)
-```
-
-### Quick Start
+Use Node 22, matching CI.
 
 ```bash
-# Install dependencies for all modules
-npm install
-
-# Run Grocery hub in dev mode
-cd grocery
-npm run dev
-
-# Build for production
+npm ci
+npm run typecheck
+npm test
+npm --prefix grocery ci
+npm --prefix grocery test
 npm run build
 ```
 
-### Tech Stack
+The root build assembles all four Vite apps plus Account into `dist/` for one Vercel deployment.
 
-- **React 19** + TypeScript
-- **Vite** (build tool)
-- **Tone.js** (Web Audio API synthesis)
-- **Web Audio API** (native audio processing)
-- **IndexedDB** (local session storage)
-- **shadcn/ui** + **Tailwind CSS** (UI)
+| Address | App |
+|---|---|
+| `/` | Grocery beat store |
+| `/sprouts/` | Sprouts vocal recording |
+| `/pastry/` | Pastry mixing and mastering |
+| `/beet/` | Retained Beet module |
+| `/account/` | Sign in and module purchases |
 
----
+`middleware.ts` protects paid module routes and fails closed when authentication or configuration is unclear. Beat leases use a separate `grocery_beat_licenses` table; buying a beat does not unlock a module, and buying a module does not grant a beat lease.
 
-## Module Details
+## Accounts and payments
 
-### Grocery (Free Hub)
-- 1 vocal recording track (plain, no effects/templates)
-- 5 backing track slots (upload or import from Beet)
-- Volume + pan per track
-- Drag-to-arrange, cut/copy/paste
-- Save sessions locally
-- Download final mix as WAV
+See `docs/ACCOUNTS_SETUP.md`. In short:
 
-### Sprouts (Paid)
-- Advanced vocal recording with effects
-- Multiple takes and layers (lead, double, backup, ad-lib)
-- Effect inserts (reverb, compression, EQ)
-- Vocal templates for different genres
-- MIDI controller support
-- Export integration with Grocery hub
+- Run `supabase/run-this-once.sql` in Supabase.
+- Configure Supabase Auth and the server environment variables in Vercel.
+- Configure Stripe and the signature-verified `checkout.session.completed` webhook.
+- Test the complete purchase and verified-license download before using live keys.
 
-### Beet (Paid)
-- 5 synth engines (Tone Basic, Wavetable, Custom OSC, Chiptune, Noise Perc)
-- Timeline sequencer (8-32 bars, 60-180 BPM)
-- 8 simultaneous tracks
-- 50+ presets (drums, bass, leads, pads, atmosphere, percussion)
-- MIDI keyboard + controller support
-- WAV + MIDI export (ready for Pastry)
+Never paste secrets into chat or commit them. Purchases are granted only by the verified webhook, never by the browser.
 
-### Pastry (Paid)
-- Multi-track mixing
-- Per-track EQ, compression, effects
-- Master bus processing
-- Stem export + bouncing
-- WAV + MP3 export
+## Integration
 
-### Diced (Paid, One-Time → Subscription)
-- User sample upload + library
-- Trim, stretch, pitch, loop manipulation
-- Sound pack subscriptions (future)
-- Project saving in cloud
+See `GROCERY_INTEGRATION.md` for the current handoff between the beat store, Sprouts, and Pastry.
 
----
+## Before real beat sales
 
-## Deployment
+- Add the owner's real recordings and activate their `audioUrl` values.
+- Run the beat-license SQL migration.
+- Complete a Stripe test purchase and webhook verification.
+- Review producer credit and the plain-English license with the owner and qualified legal counsel.
+- Decide whether full audio files need private delivery.
 
-**One Vercel project, one deployment** (`grocery`), built from this repo's `main` branch.
-`npm run build` builds all four apps and assembles one site:
-
-| Address | App | Access |
-|---|---|---|
-| `/` | Grocery (free hub) | Public |
-| `/pastry/` | Pastry (mix and master) | Locked until you own it |
-| `/beet/` | Beet (synth and drums) | Locked until you own it |
-| `/sprouts/` | Sprouts (vocals) | Locked until you own it |
-| `/account/` | Sign in and buy | Public |
-
-`middleware.ts` does the locking. See `docs/ACCOUNTS_SETUP.md` for the settings it needs.
-Pushes to `main` go to production; other branches get a preview of the whole site.
-
-```bash
-npm ci && npm run build   # same build Vercel runs; output is in dist/
-```
-
-## Pricing Model
-
-**Free Tier:**
-- Grocery hub forever
-- 6 tracks, basic mixing, save locally
-
-**Paid Modules:**
-- One-time purchase: $3.99–$5.99 each (pricing TBD)
-- Unlock full feature sets (effects, templates, advanced editing)
-
-**Future Subscription (Diced):**
-- Pro sound packs
-- Cloud project saving
-- Premium presets + templates
-
----
-
-## Documentation
-
-- **Grocery Hub:** See `grocery/README.md`
-- **Sprouts:** See `sprouts/README.md`
-- **Integration Guide:** See `GROCERY_INTEGRATION.md`
-
----
-
-## Architecture
-
-Each module is a self-contained React app with:
-- Its own `package.json` + build config
-- Local IndexedDB database (module-namespaced)
-- Grocery session export format (Grocery-compatible metadata)
-- Vercel deployment config
-
-Modules communicate via:
-- Export/import of WAV + metadata files
-- Shared `Grocery` session format (44.1 kHz, 16-bit, stereo)
-- No cross-module real-time communication
-
----
-
-## Browser Support
-
-- Chrome 90+
-- Firefox 88+
-- Safari 14+
-- (Web Audio API + IndexedDB required)
-
----
-
-**Made with ❤️ and Web Audio API.**
-
-For issues or contributions, see GitHub: https://github.com/ic4pi/runpod-wan
+The included license text is an implementation draft, not legal advice.
