@@ -14,7 +14,9 @@ export interface Track {
   offset: number;
   /** Seconds of silence before the first sound (informational, helps line tracks up). */
   lead: number;
-  origin: 'rec' | 'upload' | 'beat';
+  origin: 'rec' | 'upload';
+  /** Vocal only: the one template, "Vocal boost". On unless set to false. */
+  boost?: boolean;
 }
 
 export const MAX_NUDGE = 5; // seconds either way

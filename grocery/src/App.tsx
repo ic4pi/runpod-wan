@@ -13,8 +13,6 @@ import { forget, forgetAll, inspect, mixdown, play, type Player } from '@/lib/au
 import { formatDuration } from '@/lib/audio/wav';
 import { shareOrDownload } from '@/lib/audio/export';
 import { useSmk } from '@/lib/smk';
-import { BeatMaker } from '@/components/BeatMaker';
-import { FreePlay } from '@/components/FreePlay';
 
 const newId = () => crypto.randomUUID();
 
@@ -74,15 +72,6 @@ export default function App() {
   const lengthMismatch = uploads.length >= 2 && Math.max(...lengths) - Math.min(...lengths) > 0.05;
   const fmtMs = (sec: number) => `${sec < 0 ? '−' : '+'}${Math.round(Math.abs(sec) * 1000)} ms`;
 
-  /** The beat maker hands over a finished beat; it takes the first empty backing slot. */
-  const addBeat = (blob: Blob, name: string, duration: number) => {
-    const free = slotsRef.current.findIndex((t, i) => i > 0 && !t);
-    if (free < 0) return;
-    stopPlayback();
-    setTrack(free, { id: newId(), name, kind: 'backing', blob, duration, volume: 0.8, pan: 0, offset: 0, lead: 0, origin: 'beat' });
-  };
-  const hasFreeBacking = slots.some((t, i) => i > 0 && !t);
-
   const remove = (i: number) => {
     const t = slots[i];
     if (t) forget(t.id);
@@ -119,7 +108,7 @@ export default function App() {
           const { duration, lead } = await inspect(blob);
           const old = slotsRef.current[0];
           if (old) forget(old.id);
-          setTrack(0, { id: newId(), name: 'Vocal', kind: 'vocal', blob, duration, volume: 1, pan: 0, offset: 0, lead, origin: 'rec' });
+          setTrack(0, { id: newId(), name: 'Vocal', kind: 'vocal', blob, duration, volume: 1, pan: 0, offset: 0, lead, origin: 'rec', boost: true });
         } catch {
           toast.error('Recording could not be read');
         }
@@ -189,12 +178,8 @@ export default function App() {
         </header>
 
         <p className="mt-4 text-sm text-muted-foreground">
-          Record a vocal, add up to 5 backing tracks, set levels, save the mixdown. One project at a time.
+          Record a vocal, add up to 5 backing tracks, set levels, save the mixdown. Vocal boost polishes your voice. One project at a time.
         </p>
-
-        <BeatMaker canAdd={hasFreeBacking} onAdd={addBeat} onPreviewStart={stopPlayback} startOpen={!slots.slice(1).some(Boolean)} />
-
-        <FreePlay />
 
         {lengthMismatch && (
           <p role="status" className="mt-4 border border-primary/40 bg-primary/5 p-3 text-sm text-foreground">
@@ -231,6 +216,18 @@ export default function App() {
                   </Button>
                 )}
               </div>
+              {t && i === 0 && (
+                <div className="mt-4 flex items-center justify-between gap-3 border border-border p-3">
+                  <div>
+                    <p className="text-sm">Vocal boost</p>
+                    <p className="text-xs text-muted-foreground">Clean-up, presence, even level and a little room.</p>
+                  </div>
+                  <Button size="sm" variant={t.boost !== false ? 'default' : 'secondary'} aria-pressed={t.boost !== false}
+                    onClick={() => { patch(0, { boost: t.boost === false }); restartIfPlaying(); }}>
+                    {t.boost !== false ? 'On' : 'Off'}
+                  </Button>
+                </div>
+              )}
               {t && (
                 <div className="mt-4 grid grid-cols-2 gap-6">
                   <div>

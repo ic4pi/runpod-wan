@@ -42,6 +42,35 @@ export function startNudged(src: AudioBufferSourceNode, when: number, offset: nu
   else src.start(when, -offset);
 }
 
+/**
+ * The one vocal template: "Vocal boost". Same chain for live play and mixdown.
+ * Clean-up high-pass, a little mud removed, presence and air added, gentle
+ * compression to even the level, makeup gain, and a small room for polish.
+ */
+export function vocalBoost(ctx: BaseAudioContext, input: AudioNode): AudioNode {
+  const hp = ctx.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 90; hp.Q.value = 0.7;
+  const mud = ctx.createBiquadFilter(); mud.type = 'peaking'; mud.frequency.value = 280; mud.Q.value = 0.9; mud.gain.value = -2.5;
+  const presence = ctx.createBiquadFilter(); presence.type = 'peaking'; presence.frequency.value = 3200; presence.Q.value = 0.8; presence.gain.value = 3;
+  const air = ctx.createBiquadFilter(); air.type = 'highshelf'; air.frequency.value = 9500; air.gain.value = 2.5;
+  const comp = ctx.createDynamicsCompressor();
+  comp.threshold.value = -24; comp.knee.value = 8; comp.ratio.value = 3.5; comp.attack.value = 0.01; comp.release.value = 0.16;
+  const makeup = ctx.createGain(); makeup.gain.value = 1.7;
+  input.connect(hp).connect(mud).connect(presence).connect(air).connect(comp).connect(makeup);
+  // small room: generated impulse, kept quiet
+  const rate = ctx.sampleRate, len = Math.floor(rate * 0.7);
+  const ir = ctx.createBuffer(2, len, rate);
+  for (let c = 0; c < 2; c++) {
+    const d = ir.getChannelData(c);
+    for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 3);
+  }
+  const verb = ctx.createConvolver(); verb.buffer = ir;
+  const wet = ctx.createGain(); wet.gain.value = 0.35;
+  const out = ctx.createGain();
+  makeup.connect(out);
+  makeup.connect(verb).connect(wet).connect(out);
+  return out;
+}
+
 /** Live preview: all tracks start together; volume/pan can be changed while playing. */
 export interface Player {
   stop(): void;
@@ -71,7 +100,8 @@ export async function play(slots: Slots, skipSlot?: number): Promise<Player> {
     const pan = c.createStereoPanner();
     gain.gain.value = t.volume;
     pan.pan.value = t.pan;
-    src.connect(gain).connect(pan).connect(c.destination);
+    if (t.kind === 'vocal' && t.boost !== false) vocalBoost(c, src.connect(gain)).connect(pan).connect(c.destination);
+    else src.connect(gain).connect(pan).connect(c.destination);
     nodes.set(t.id, { gain, pan });
     remaining++;
     src.onended = () => { if (--remaining === 0) resolveEnd(); };
@@ -91,16 +121,18 @@ export async function play(slots: Slots, skipSlot?: number): Promise<Player> {
 }
 
 /**
- * Mixdown: a plain sum of the tracks with their volume and pan. No EQ, no
- * compression, no limiting, no loudness processing. The only safety is a
- * gain reduction if the sum would clip.
+ * Mixdown: the tracks summed with their volume and pan, plus the one vocal
+ * template (Vocal boost) on the vocal if it is switched on. No mastering, no
+ * loudness processing. The only safety is a gain reduction if the sum would clip.
+ * The mixdown is longer than the tracks by a short tail so the room can fade.
  */
 export async function mixdown(slots: Slots): Promise<Blob> {
   const tracks = slots.filter((t): t is Track => !!t);
   if (!tracks.length) throw new Error('Nothing to mix');
   const buffers = await Promise.all(tracks.map(decode));
   const sampleRate = 44100;
-  const length = Math.ceil(Math.max(...tracks.map((t) => endOf({ offset: t.offset ?? 0, duration: t.duration }))) * sampleRate);
+  const tail = tracks.some((t) => t.kind === 'vocal' && t.boost !== false) ? 0.7 : 0;
+  const length = Math.ceil((Math.max(...tracks.map((t) => endOf({ offset: t.offset ?? 0, duration: t.duration }))) + tail) * sampleRate);
   const off = new OfflineAudioContext(2, length, sampleRate);
   tracks.forEach((t, i) => {
     const src = off.createBufferSource();
@@ -109,7 +141,8 @@ export async function mixdown(slots: Slots): Promise<Blob> {
     gain.gain.value = t.volume;
     const pan = off.createStereoPanner();
     pan.pan.value = t.pan;
-    src.connect(gain).connect(pan).connect(off.destination);
+    if (t.kind === 'vocal' && t.boost !== false) vocalBoost(off, src.connect(gain)).connect(pan).connect(off.destination);
+    else src.connect(gain).connect(pan).connect(off.destination);
     startNudged(src, 0, t.offset ?? 0);
   });
   const out = await off.startRendering();
