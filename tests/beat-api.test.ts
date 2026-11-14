@@ -3,6 +3,7 @@ import { POST as checkout } from '../api/beat-checkout';
 import { GET as license } from '../api/beat-license';
 import { beatHasAudio, BEAT_LICENSE_VERSION, CATALOG_BEATS, getCatalogBeat } from '../lib/beats';
 import { USER_ID, fakeFetch, res, setEnv, supa } from './helpers';
+import { capiWatermarkTimes } from '../grocery/src/lib/mvp/audio';
 
 const post = (body: unknown, headers: Record<string, string> = {}) => new Request('https://site.test/api/beat-checkout', {
   method: 'POST',
@@ -15,7 +16,7 @@ const get = (beat: string, cookie = 'pa=AT') => license(new Request(`https://sit
 const licenseRows = (rows: unknown[]) => (u: string) => u.includes('/rest/v1/grocery_beat_licenses?') ? res(rows) : undefined;
 const stripeOk = (u: string) => u.includes('api.stripe.com') ? res({ url: 'https://checkout.stripe.com/c/pay/beat' }) : undefined;
 const row = {
-  id: 'license-1', beat_id: 'backseat-gospel', beat_title: 'Backseat Gospel',
+  id: 'license-1', beat_id: 'backseat-gospel', beat_title: 'Casimir Drift',
   producer: 'Grocery', license_version: BEAT_LICENSE_VERSION, created_at: '2026-11-13T00:00:00Z',
 };
 const withAudio = () => { CATALOG_BEATS[0].audioUrl = '/beats/backseat-gospel.mp3'; };
@@ -27,6 +28,13 @@ beforeEach(() => {
 });
 
 describe('beat catalog', () => {
+  it('spaces Capi Capi tags across previews and full unleased sessions', () => {
+    expect(capiWatermarkTimes(30)).toEqual([4, 28]);
+    expect(capiWatermarkTimes(60)).toEqual([4, 28, 52]);
+    expect(capiWatermarkTimes(2)).toEqual([0.25]);
+    expect(capiWatermarkTimes(0)).toEqual([]);
+  });
+
   it('has ten distinct real-audio slots and never marks an empty slot as sellable', () => {
     expect(CATALOG_BEATS).toHaveLength(10);
     expect(new Set(CATALOG_BEATS.map((beat) => beat.id)).size).toBe(10);
@@ -42,7 +50,7 @@ describe('beat catalog', () => {
     }
     withAudio();
     expect(beatHasAudio(CATALOG_BEATS[0])).toBe(true);
-    expect(getCatalogBeat('backseat-gospel')?.title).toBe('Backseat Gospel');
+    expect(getCatalogBeat('backseat-gospel')?.title).toBe('Casimir Drift');
     expect(getCatalogBeat('not-a-beat')).toBeUndefined();
     expect(getCatalogBeat(null)).toBeUndefined();
   });
@@ -105,7 +113,7 @@ describe('verified beat license', () => {
     const r = await get('backseat-gospel');
     expect(r.status).toBe(200);
     expect(await r.json()).toEqual({ licensed: true, license: {
-      id: 'license-1', beatId: 'backseat-gospel', beatTitle: 'Backseat Gospel',
+      id: 'license-1', beatId: 'backseat-gospel', beatTitle: 'Casimir Drift',
       producer: 'Grocery', licensee: 'buyer@example.com',
       licensedAt: '2026-11-13T00:00:00Z', version: BEAT_LICENSE_VERSION,
     } });

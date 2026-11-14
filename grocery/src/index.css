@@ -13,13 +13,13 @@
     --card-foreground: 60 9% 96%;
     --popover: 165 14% 7%;
     --popover-foreground: 60 9% 96%;
-    --primary: 60 100% 50%;
+    --primary: 52 91% 64%;
     --primary-foreground: 180 14% 4%;
     --secondary: 165 14% 12%;
     --secondary-foreground: 60 9% 96%;
     --muted: 165 14% 12%;
-    --muted-foreground: 150 6% 67%;
-    --accent: 174 100% 29%;
+    --muted-foreground: 180 8% 66%;
+    --accent: 202 75% 59%;
     --accent-foreground: 60 9% 96%;
     --destructive: 0 72% 55%;
     --destructive-foreground: 60 9% 96%;
@@ -36,6 +36,7 @@
   }
   html {
     background: hsl(var(--background));
+    scroll-behavior: smooth;
   }
   body {
     @apply bg-background text-foreground;
@@ -69,12 +70,169 @@
     background: hsl(var(--primary) / 0.6);
   }
   :focus-visible {
-    outline-color: hsl(var(--primary));
+    outline: 2px solid #44a6e4;
+    outline-offset: 4px;
+  }
+  button, a {
+    -webkit-tap-highlight-color: transparent;
+  }
+}
+
+.section-marker {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+}
+
+.section-marker::before {
+  content: '';
+  width: 0.45rem;
+  height: 0.45rem;
+  flex: 0 0 auto;
+  background: currentColor;
+}
+
+.hero-enter {
+  animation: hero-enter 0.65s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes hero-enter {
+  from { opacity: 0; transform: translateY(14px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.beat-card__art {
+  position: relative;
+  perspective: 1000px;
+}
+
+.beat-package {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1;
+  flex-shrink: 0;
+  overflow: hidden;
+  container-type: inline-size;
+  transition: transform 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.beat-package--small {
+  width: 6rem;
+  height: 6rem;
+}
+
+.beat-package__topline {
+  position: absolute;
+  z-index: 2;
+  top: 5.5%;
+  left: 6%;
+  right: 6%;
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: clamp(6px, 2.5cqw, 10px);
+  line-height: 1;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.beat-package__field {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.beat-package__orbits {
+  transition: transform 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.beat-package__footer {
+  position: absolute;
+  z-index: 2;
+  left: 6%;
+  right: 6%;
+  bottom: 6%;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 5%;
+}
+
+.beat-package__footer > div {
+  min-width: 0;
+}
+
+.beat-package__kicker {
+  display: block;
+  margin-bottom: 0.45em;
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: clamp(5px, 2.1cqw, 9px);
+  line-height: 1.2;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  opacity: 0.72;
+}
+
+.beat-package__footer strong {
+  display: block;
+  max-width: 12ch;
+  font-family: 'Space Grotesk', ui-sans-serif, system-ui, sans-serif;
+  font-size: clamp(10px, 7.2cqw, 30px);
+  font-weight: 500;
+  line-height: 0.95;
+  letter-spacing: -0.055em;
+  overflow-wrap: anywhere;
+}
+
+.beat-package--small .beat-package__footer strong {
+  font-size: 10px;
+}
+
+.beat-package--small .beat-package__kicker,
+.beat-package--small .beat-package__barcode {
+  display: none;
+}
+
+.beat-package__barcode {
+  display: flex;
+  height: clamp(12px, 10cqw, 38px);
+  align-items: stretch;
+  gap: 2px;
+  flex: 0 0 auto;
+}
+
+.beat-package__barcode i {
+  display: block;
+  background: currentColor;
+}
+
+@media (hover: hover) and (prefers-reduced-motion: no-preference) {
+  .beat-card:hover .beat-package {
+    transform: rotateX(1.2deg) rotateY(-1.2deg) translateY(-3px);
+  }
+  .beat-card:hover .beat-package__orbits {
+    transform: rotate(7deg) scale(1.025);
+  }
+}
+
+@media (max-width: 639px) {
+  .quantum-shelf {
+    min-height: 420px;
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .animate-ping {
-    animation: none;
+  html { scroll-behavior: auto; }
+  *, *::before, *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+  .animate-ping,
+  .animate-spin {
+    animation: none !important;
   }
 }

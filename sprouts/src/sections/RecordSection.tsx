@@ -8,6 +8,7 @@ import { cancelBleed, makeDouble, mixLayers, mixStems, decodeBlob } from '@/lib/
 import { downloadBlob, shareOrDownload } from '@/lib/audio/export';
 import { exportGroceryBundle } from '@/lib/audio/exportGrocery';
 import { stagePastryHandoff } from '@/lib/audio/handoff';
+import { consumeGroceryBeat } from '@/lib/audio/groceryHandoff';
 import { FX_LIST } from '@/lib/audio/fx';
 import { audioBufferToWav, formatBytes, formatDuration } from '@/lib/audio/wav';
 import { useSession } from '@/lib/session';
@@ -132,6 +133,8 @@ export function RecordSection() {
   const [exportingGrocery, setExportingGrocery] = useState(false);
   const [beat, setBeat] = useState<Beat | null>(null);
   const beatRef = useRef<Beat | null>(null);
+  const [groceryBeatNotice, setGroceryBeatNotice] = useState<string | null>(null);
+  const groceryHandoffStartedRef = useRef(false);
   const [songBlob, setSongBlob] = useState<Blob | null>(null);
   const beatInputRef = useRef<HTMLInputElement>(null);
   const timerRef = useRef<number | null>(null);
@@ -215,6 +218,7 @@ export function RecordSection() {
 
   /** Load one instrumental or up to eight individual music stems. */
   const addBeat = useCallback(async (files: FileList | File[]) => {
+    setGroceryBeatNotice(null);
     const audioFiles = Array.from(files).filter((file) =>
       file.type.startsWith('audio/') || /\.(wav|mp3|m4a|aac|ogg|opus|flac|webm)$/i.test(file.name));
     if (audioFiles.length === 0) {
@@ -264,6 +268,32 @@ export function RecordSection() {
       toast.error('Could not decode one of those audio files.');
     }
   }, [setBeatState]);
+
+  // A Grocery beat arrives once through same-origin IndexedDB. Clean audio is
+  // already limited to verified leases; unleased sessions retain their tags.
+  useEffect(() => {
+    if (groceryHandoffStartedRef.current) return;
+    const params = new URLSearchParams(window.location.search);
+    const id = params.get('beat');
+    if (params.get('from') !== 'grocery' || !id) return;
+    groceryHandoffStartedRef.current = true;
+
+    void (async () => {
+      try {
+        const handoff = await consumeGroceryBeat(id);
+        if (!handoff) throw new Error('This Grocery beat expired or was already opened.');
+        await addBeat([new File([handoff.blob], handoff.filename, { type: handoff.blob.type || 'audio/wav' })]);
+        if (!beatRef.current) throw new Error('The Grocery audio could not be decoded.');
+        setBpm(handoff.bpm);
+        setGroceryBeatNotice(handoff.licensed
+          ? `Verified lease · clean “${handoff.title}” · credit Beat by ${handoff.producer}.`
+          : `Unleased “${handoff.title}” · Capi Capi tags are rendered into this session and its Pastry exports. Lease it in Grocery for the clean beat.`);
+        window.history.replaceState({}, '', window.location.pathname);
+      } catch (error) {
+        toast.error(error instanceof Error ? error.message : 'The Grocery beat could not be opened.');
+      }
+    })();
+  }, [addBeat]);
 
   /** Render the vocal stack alone (for layer play buttons + headphone backing). */
   const renderStack = useCallback(async (ls: Layer[], tpl: typeof template, lv: Levels): Promise<Blob | null> => {
@@ -699,7 +729,7 @@ export function RecordSection() {
             </div>
             <AudioWaveform className="h-4 w-4 shrink-0 text-primary/70" />
             <button
-              onClick={() => { setBeatState(null); setSongBlob(null); stopPlayback(); }}
+              onClick={() => { setBeatState(null); setGroceryBeatNotice(null); setSongBlob(null); stopPlayback(); }}
               aria-label="Remove backing audio"
               className="flex h-11 w-11 items-center justify-center text-muted-foreground transition-colors hover:text-destructive focus-visible:outline-2 focus-visible:outline-primary"
             >
@@ -717,6 +747,11 @@ export function RecordSection() {
                 </li>
               ))}
             </ul>
+          )}
+          {groceryBeatNotice && (
+            <p role="status" className="border border-t-0 border-primary/40 bg-primary/5 px-4 py-3 text-xs leading-relaxed text-primary">
+              {groceryBeatNotice}
+            </p>
           )}
           </>
         )}

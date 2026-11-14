@@ -124,7 +124,7 @@ describe('Stripe webhook', () => {
       expect(JSON.parse(String(grant.init?.body))).toEqual({
         user_id: USER_ID,
         beat_id: 'backseat-gospel',
-        beat_title: 'Backseat Gospel',
+        beat_title: 'Casimir Drift',
         producer: 'Grocery',
         stripe_session_id: 'cs_1',
         amount_cents: 1900,
