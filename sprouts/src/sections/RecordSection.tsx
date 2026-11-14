@@ -1,16 +1,17 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import {
-  AudioWaveform, Circle, Download, Headphones, Layers2, Loader2, Music2, Package, Play, Plus, Save, Share2, Sparkles, Square, TriangleAlert, VolumeX, Volume2, X,
+  ArrowUpRight, AudioWaveform, Circle, Download, Headphones, Layers2, Loader2, Music2, Package, Play, Plus, Save, Share2, Sparkles, Square, TriangleAlert, VolumeX, Volume2, X,
 } from 'lucide-react';
 import { engine } from '@/lib/audio/engine';
 import { cancelBleed, makeDouble, mixLayers, mixStems, decodeBlob } from '@/lib/audio/render';
 import { downloadBlob, shareOrDownload } from '@/lib/audio/export';
 import { exportGroceryBundle } from '@/lib/audio/exportGrocery';
+import { stagePastryHandoff } from '@/lib/audio/handoff';
 import { FX_LIST } from '@/lib/audio/fx';
 import { audioBufferToWav, formatBytes, formatDuration } from '@/lib/audio/wav';
 import { useSession } from '@/lib/session';
-import { getTemplate, TEMPLATES, type Levels } from '@/lib/templates';
+import { getTemplate, guessRole, TEMPLATES, type Levels } from '@/lib/templates';
 import { smk } from '@/lib/audio/midi';
 import { ControllerPanel } from '@/components/ControllerPanel';
 import { HaloVisualizer } from '@/components/HaloVisualizer';
@@ -32,10 +33,21 @@ interface Layer {
   fx?: string; // per-layer FX insert id
 }
 
-interface Beat {
+interface BackingStem {
+  id: string;
   name: string;
   size: number;
   buffer: AudioBuffer;
+  role: 'beat' | 'bass';
+}
+
+interface Beat {
+  name: string;
+  size: number;
+  /** Unprocessed backing mix used only for monitoring while recording. */
+  buffer: AudioBuffer;
+  /** Original music stems retained for the final mix and Pastry handoff. */
+  stems: BackingStem[];
 }
 
 const ROLE_LABELS: Record<LayerRole, string> = { lead: 'Lead', double: 'Double', backup: 'Backup', adlib: 'Ad-lib' };
@@ -51,10 +63,26 @@ function nextRole(layers: Layer[], preferred: 'adlib' | 'backup' = 'adlib'): Lay
   return preferred;
 }
 
-/** Mix beat + vocal stack into the final song. Vocal stack gets the voice
- *  treatment; beat goes through the beat bus; sidechain ducks beat under vocals. */
+/** Sum uploaded music stems without mastering them; this is the record monitor. */
+async function mixBackingForMonitor(stems: BackingStem[]): Promise<AudioBuffer> {
+  const sampleRate = 44100;
+  const duration = Math.max(...stems.map((stem) => stem.buffer.duration));
+  const offline = new OfflineAudioContext(2, Math.ceil(duration * sampleRate), sampleRate);
+  const trim = offline.createGain();
+  trim.gain.value = 1 / Math.sqrt(stems.length);
+  trim.connect(offline.destination);
+  for (const stem of stems) {
+    const source = offline.createBufferSource();
+    source.buffer = stem.buffer;
+    source.connect(trim);
+    source.start();
+  }
+  return offline.startRendering();
+}
+
+/** Mix music stems + vocal stack into the final song. Every stem keeps its bus. */
 async function renderSong(
-  beat: AudioBuffer,
+  beat: Beat,
   layers: Layer[],
   template: ReturnType<typeof getTemplate>,
   levels: Levels,
@@ -76,9 +104,8 @@ async function renderSong(
           levels,
         )
       : null;
-    const songStems: { name: string; buffer: AudioBuffer; role: 'beat' | 'voice' }[] = [
-      { name: 'beat', buffer: beat, role: 'beat' },
-    ];
+    const songStems: { name: string; buffer: AudioBuffer; role: 'beat' | 'bass' | 'voice' }[] =
+      beat.stems.map((stem) => ({ name: stem.name, buffer: stem.buffer, role: stem.role }));
     if (vocalStack) songStems.push({ name: 'vocals', buffer: vocalStack, role: 'voice' });
     const rendered = await mixStems(songStems, template, levels);
     return audioBufferToWav(rendered);
@@ -186,28 +213,55 @@ export function RecordSection() {
   const setPanRef = useRef<(id: string, pan: number) => Promise<void>>(async () => {});
   const setGainRef = useRef<(role: LayerRole, gain: number) => Promise<void>>(async () => {});
 
-  /** Load a beat file from the device. */
+  /** Load one instrumental or up to eight individual music stems. */
   const addBeat = useCallback(async (files: FileList | File[]) => {
-    const file = Array.from(files).find((f) => f.type.startsWith('audio/') || /\.(wav|mp3|m4a|aac|ogg|opus|flac|webm)$/i.test(f.name));
-    if (!file) {
+    const audioFiles = Array.from(files).filter((file) =>
+      file.type.startsWith('audio/') || /\.(wav|mp3|m4a|aac|ogg|opus|flac|webm)$/i.test(file.name));
+    if (audioFiles.length === 0) {
       toast.error('That doesn\'t look like audio — WAV, MP3, M4A all work.');
       return;
     }
-    if (file.size > 60 * 1024 * 1024) {
-      toast.error('Beat is over 60 MB — bounce it smaller first.');
+    if (audioFiles.length > 8) {
+      toast.error('Choose up to 8 backing stems at a time.');
       return;
     }
+    const tooBig = audioFiles.find((file) => file.size > 60 * 1024 * 1024);
+    if (tooBig) {
+      toast.error(`${tooBig.name} is over 60 MB — bounce it smaller first.`);
+      return;
+    }
+    if (audioFiles.reduce((total, file) => total + file.size, 0) > 200 * 1024 * 1024) {
+      toast.error('Those backing stems total over 200 MB — bounce them lighter first.');
+      return;
+    }
+
     try {
-      const buffer = await decodeBlob(file);
-      if (buffer.duration > 600) {
-        toast.error('Beat is over 10 minutes — too long.');
-        return;
+      const stems: BackingStem[] = [];
+      for (const file of audioFiles) {
+        const buffer = await decodeBlob(file);
+        if (buffer.duration > 600) {
+          toast.error(`${file.name} is over 10 minutes — too long.`);
+          return;
+        }
+        stems.push({
+          id: crypto.randomUUID(),
+          name: file.name,
+          size: file.size,
+          buffer,
+          role: guessRole(file.name) === 'bass' ? 'bass' : 'beat',
+        });
       }
-      setBeatState({ name: file.name, size: file.size, buffer });
+      const monitorBuffer = await mixBackingForMonitor(stems);
+      setBeatState({
+        name: stems.length === 1 ? stems[0].name : `${stems.length} backing stems`,
+        size: stems.reduce((total, stem) => total + stem.size, 0),
+        buffer: monitorBuffer,
+        stems,
+      });
       setSongBlob(null);
-      toast.success('Beat loaded. Record over it.');
+      toast.success(`${stems.length === 1 ? 'Beat' : `${stems.length} stems`} loaded. Record over ${stems.length === 1 ? 'it' : 'them'}.`);
     } catch {
-      toast.error('Could not decode that beat file.');
+      toast.error('Could not decode one of those audio files.');
     }
   }, [setBeatState]);
 
@@ -240,7 +294,7 @@ export function RecordSection() {
     const next = ls.map((l) => ({ ...l, mixBlob }));
     syncLayers(next);
     if (beatRef.current) {
-      const song = await renderSong(beatRef.current.buffer, next, tpl, lv);
+      const song = await renderSong(beatRef.current, next, tpl, lv);
       setSongBlob(song);
     } else {
       setSongBlob(null);
@@ -509,28 +563,53 @@ export function RecordSection() {
     remixTimer.current = window.setTimeout(() => void rerenderAll(layersRef.current, template, levels), 450);
   }, [syncLayers, rerenderAll, template, levels, stopPlayback]);
 
-  const handleGroceryExport = useCallback(async () => {
-    if (layersRef.current.length === 0 || !beatRef.current) return;
+  const buildPastryBundle = useCallback(async () => {
+    if (layersRef.current.length === 0 || !beatRef.current) return null;
+    const name = `${template.name} · ${new Date().toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}`;
+    const filename = `sprouts-${template.id}-session.zip`;
+    const { blob } = await exportGroceryBundle({
+      sessionName: name,
+      bpm,
+      template,
+      levels,
+      layers: layersRef.current.map(({ role, blob, duration, pan, gain, fx }) => ({ role, blob, duration, pan, gain, fx })),
+      backingStems: beatRef.current.stems.map((stem) => ({
+        buffer: stem.buffer,
+        name: stem.name,
+        role: stem.role,
+      })),
+    });
+    return { blob, filename };
+  }, [template, levels, bpm]);
+
+  const handleSessionDownload = useCallback(async () => {
     setExportingGrocery(true);
     try {
-      const name = `${template.name} · ${new Date().toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}`;
-      const { blob } = await exportGroceryBundle({
-        sessionName: name,
-        bpm,
-        template,
-        levels,
-        layers: layersRef.current.map(({ role, blob, duration, pan, gain, fx }) => ({ role, blob, duration, pan, gain, fx })),
-        beat: beatRef.current ? { buffer: beatRef.current.buffer, name: beatRef.current.name } : null,
-      });
-      downloadBlob(blob, `sprouts-${template.id}-session.zip`);
-      toast.success('Grocery session exported — stems + session.json.');
+      const bundle = await buildPastryBundle();
+      if (!bundle) return;
+      downloadBlob(bundle.blob, bundle.filename);
+      toast.success('Session ZIP downloaded — open it in Pastry.');
     } catch (err) {
-      console.error('[levels] grocery export failed', err);
-      toast.error('Grocery export failed — try fewer layers.');
+      console.error('[sprouts] session export failed', err);
+      toast.error('Session export failed — try fewer or shorter layers.');
     } finally {
       setExportingGrocery(false);
     }
-  }, [template, levels, bpm]);
+  }, [buildPastryBundle]);
+
+  const handlePastryHandoff = useCallback(async () => {
+    setExportingGrocery(true);
+    try {
+      const bundle = await buildPastryBundle();
+      if (!bundle) return;
+      const handoffId = await stagePastryHandoff(bundle.blob, bundle.filename);
+      window.location.assign(`/pastry/?from=sprouts&session=${encodeURIComponent(handoffId)}`);
+    } catch (err) {
+      console.error('[sprouts] direct Pastry handoff failed', err);
+      toast.error('Direct handoff is unavailable here. Use Session ZIP instead.');
+      setExportingGrocery(false);
+    }
+  }, [buildPastryBundle]);
 
   const handleKeep = useCallback(async () => {
     if (layersRef.current.length === 0) return;
@@ -591,18 +670,19 @@ export function RecordSection() {
         <p className="mt-2 text-sm text-muted-foreground">{template.blurb}</p>
       </div>
 
-      {/* Beat */}
+      {/* Beat or individual backing stems */}
       <div>
-        <p className="font-mono text-[11px] uppercase tracking-[0.25em] text-muted-foreground">Beat</p>
+        <p className="font-mono text-[11px] uppercase tracking-[0.25em] text-muted-foreground">Beat or backing stems</p>
         {!hasBeat ? (
           <button
             onClick={() => beatInputRef.current?.click()}
             className="mt-3 flex w-full min-h-20 items-center justify-center gap-3 border border-dashed border-border px-6 py-5 text-center transition-colors duration-200 hover:border-foreground/40 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
           >
             <Music2 className="h-5 w-5 text-muted-foreground" />
-            <span className="text-sm text-muted-foreground">Drop your beat — then record over it</span>
+            <span className="text-sm text-muted-foreground">Choose a beat or up to 8 stems — then record over them</span>
           </button>
         ) : (
+          <>
           <div className="mt-3 flex items-center gap-3 border border-border px-4 py-3">
             <button
               onClick={playBeat}
@@ -620,17 +700,32 @@ export function RecordSection() {
             <AudioWaveform className="h-4 w-4 shrink-0 text-primary/70" />
             <button
               onClick={() => { setBeatState(null); setSongBlob(null); stopPlayback(); }}
-              aria-label="Remove beat"
+              aria-label="Remove backing audio"
               className="flex h-11 w-11 items-center justify-center text-muted-foreground transition-colors hover:text-destructive focus-visible:outline-2 focus-visible:outline-primary"
             >
               <X className="h-4 w-4" />
             </button>
           </div>
+          {beat.stems.length > 1 && (
+            <ul className="divide-y divide-border border border-t-0 border-border">
+              {beat.stems.map((stem) => (
+                <li key={stem.id} className="flex items-center gap-3 px-4 py-2.5 text-sm">
+                  <span className="min-w-0 flex-1 truncate">{stem.name}</span>
+                  <span className="font-mono text-[10px] uppercase tracking-[0.12em] text-muted-foreground">
+                    {stem.role} · {formatDuration(stem.buffer.duration)}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
+          </>
         )}
         <input
           ref={beatInputRef}
           type="file"
           accept="audio/*,.wav,.mp3,.m4a,.aac,.ogg,.opus,.flac,.webm"
+          aria-label="Upload beat or backing stems"
+          multiple
           className="hidden"
           onChange={(e) => {
             if (e.target.files) void addBeat(e.target.files);
@@ -851,7 +946,7 @@ export function RecordSection() {
               <Layers2 className="h-4 w-4 shrink-0 text-primary/70" />
             </div>
             {hasBeat && (
-              <div className="flex items-center gap-3 border-t border-border px-4 py-3">
+              <div className="flex flex-wrap items-center gap-3 border-t border-border px-4 py-3">
                 <span className="font-mono text-[10px] uppercase tracking-[0.15em] text-muted-foreground/60">BPM</span>
                 <input
                   type="number"
@@ -862,14 +957,25 @@ export function RecordSection() {
                   aria-label="Song BPM"
                   className="w-16 border border-border bg-transparent px-2 py-1.5 text-center font-mono text-sm text-foreground focus-visible:outline-2 focus-visible:outline-primary"
                 />
-                <button
-                  onClick={handleGroceryExport}
-                  disabled={exportingGrocery || layers.length === 0}
-                  className="ml-auto flex min-h-11 items-center gap-2 border border-primary/60 px-4 py-2 font-mono text-[11px] uppercase tracking-[0.12em] text-primary transition-colors duration-150 hover:bg-primary/10 focus-visible:outline-2 focus-visible:outline-primary disabled:opacity-50"
-                >
-                  {exportingGrocery ? <Loader2 className="h-4 w-4 animate-spin" /> : <Package className="h-4 w-4" />}
-                  Export to Grocery
-                </button>
+                <div className="ml-auto flex flex-wrap justify-end gap-2">
+                  <button
+                    onClick={handleSessionDownload}
+                    disabled={exportingGrocery || layers.length === 0}
+                    aria-label="Download session ZIP"
+                    className="flex min-h-11 items-center gap-2 border border-border px-3 py-2 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground transition-colors duration-150 hover:text-foreground focus-visible:outline-2 focus-visible:outline-primary disabled:opacity-50"
+                  >
+                    <Package className="h-4 w-4" />
+                    Session ZIP
+                  </button>
+                  <button
+                    onClick={handlePastryHandoff}
+                    disabled={exportingGrocery || layers.length === 0}
+                    className="flex min-h-11 items-center gap-2 border border-primary/60 px-4 py-2 font-mono text-[11px] uppercase tracking-[0.12em] text-primary transition-colors duration-150 hover:bg-primary/10 focus-visible:outline-2 focus-visible:outline-primary disabled:opacity-50"
+                  >
+                    {exportingGrocery ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowUpRight className="h-4 w-4" />}
+                    Open in Pastry
+                  </button>
+                </div>
               </div>
             )}
             <div className="grid grid-cols-3 divide-x divide-border border-t border-border">
@@ -907,7 +1013,7 @@ export function RecordSection() {
         <div className="flex flex-col items-center gap-3 border border-dashed border-border px-6 py-10 text-center">
           <Plus className="h-5 w-5 text-muted-foreground" />
           <p className="max-w-xs text-sm leading-relaxed text-muted-foreground">
-            Drop a beat above, hit record, and lay your lead. Levels makes the doubles, stacks your ad-libs and backups, and sidechains the beat under your voice — a whole song, on your phone.
+            Choose a beat or your own stems above, hit record, and lay your lead. Sprouts makes the doubles and stacks your ad-libs and backups; Pastry handles the final mix and master.
           </p>
         </div>
       )}
