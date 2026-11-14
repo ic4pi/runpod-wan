@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { Download, Loader2, Play, RotateCcw, Share2, Square, Upload, X } from 'lucide-react';
 import { Slider } from '@/components/ui/slider';
@@ -6,11 +6,12 @@ import { mixStems } from '@/lib/audio/render';
 import { audioBufferToWav, formatBytes } from '@/lib/audio/wav';
 import { shareOrDownload } from '@/lib/audio/export';
 import { importFiles, type Role, type Stem } from '@/lib/importer';
+import { consumePastryHandoff } from '@/lib/handoff';
 import { DEFAULT_TEMPLATE_ID, LEVEL_DEFS, NEUTRAL_LEVELS, TEMPLATES, getTemplate, type Levels } from '@/lib/templates';
 import { useSmk } from '@/lib/smk';
 import { Toaster } from '@/components/ui/sonner';
 
-const MAX_STEMS = 8;
+const MAX_STEMS = 24;
 const ROLES: { id: Role; label: string }[] = [
   { id: 'voice', label: 'Vocal' },
   { id: 'beat', label: 'Beat' },
@@ -26,6 +27,9 @@ export default function App() {
   const [master, setMaster] = useState<AudioBuffer | null>(null);
   const [mixing, setMixing] = useState(false);
   const [playing, setPlaying] = useState(false);
+  const [sessionName, setSessionName] = useState<string | null>(null);
+  const [handoffLoading, setHandoffLoading] = useState(false);
+  const handoffStartedRef = useRef(false);
   const ctxRef = useRef<AudioContext | null>(null);
   const srcRef = useRef<AudioBufferSourceNode | null>(null);
   const template = getTemplate(templateId);
@@ -38,21 +42,59 @@ export default function App() {
   };
   const stale = () => { stop(); setMaster(null); };
 
+  useEffect(() => {
+    if (handoffStartedRef.current) return;
+    const id = new URLSearchParams(window.location.search).get('session');
+    if (!id) return;
+    handoffStartedRef.current = true;
+    setHandoffLoading(true);
+
+    void (async () => {
+      try {
+        const handoff = await consumePastryHandoff(id);
+        if (!handoff) throw new Error('The Sprouts session expired or was already opened.');
+        const file = new File([handoff.blob], handoff.filename, { type: 'application/zip' });
+        const { stems: imported, skipped, session } = await importFiles([file]);
+        if (imported.length === 0) throw new Error(skipped.join(', ') || 'No audio stems were found.');
+        if (imported.length > MAX_STEMS) throw new Error(`This session has ${imported.length} stems; Pastry accepts ${MAX_STEMS}.`);
+        setStems(imported);
+        setMaster(null);
+        setSessionName(session?.name ?? 'Sprouts session');
+        if (session?.templateId && TEMPLATES.some((item) => item.id === session.templateId)) {
+          setTemplateId(session.templateId);
+        }
+        if (session?.levels) setLevels(session.levels);
+        window.history.replaceState({}, '', window.location.pathname);
+        toast.success(`${imported.length} stems received from Sprouts. Ready to mix.`);
+      } catch (error) {
+        toast.error(`${error instanceof Error ? error.message : 'Could not open the Sprouts session.'} Use Session ZIP in Sprouts if this happens again.`);
+      } finally {
+        setHandoffLoading(false);
+      }
+    })();
+  }, []);
+
   const addFiles = async (list: FileList | null) => {
     if (!list?.length) return;
-    const { stems: added, skipped } = await importFiles([...list]);
+    const { stems: added, skipped, session } = await importFiles([...list]);
     const room = MAX_STEMS - stems.length;
     if (added.length > room) toast.error(`Up to ${MAX_STEMS} stems. Extra files were not added.`);
     if (skipped.length) toast.error(`Skipped: ${skipped.join(', ')}`);
     if (added.length) { stale(); setStems((s) => [...s, ...added.slice(0, Math.max(0, room))]); }
+    if (session) {
+      setSessionName(session.name ?? 'Sprouts session');
+      if (session.templateId && TEMPLATES.some((item) => item.id === session.templateId)) setTemplateId(session.templateId);
+      if (session.levels) setLevels(session.levels);
+    }
   };
 
   const nudge = (id: string, delta: number) => {
     setStems((p) => p.map((x) => (x.id === id ? { ...x, offset: Math.max(-5, Math.min(5, Math.round((x.offset + delta) * 1000) / 1000)) } : x)));
     stale();
   };
-  const lengths = stems.map((s) => s.buffer.duration);
-  const lengthMismatch = stems.length >= 2 && Math.max(...lengths) - Math.min(...lengths) > 0.05;
+  // Vocal takes are naturally shorter than the backing; only warn about music-stem mismatch.
+  const lengths = stems.filter((s) => s.role !== 'voice').map((s) => s.buffer.duration);
+  const lengthMismatch = lengths.length >= 2 && Math.max(...lengths) - Math.min(...lengths) > 0.05;
 
   const mixAndMaster = async () => {
     stale(); setMixing(true);
@@ -151,9 +193,20 @@ export default function App() {
         {/* 2. Stems */}
         <section>
           <p className="mb-3 font-mono text-[11px] uppercase tracking-[0.25em] text-muted-foreground">2 · Stems</p>
+          {handoffLoading && (
+            <p role="status" className="mb-3 flex items-center gap-2 border border-border p-3 text-sm text-muted-foreground">
+              <Loader2 className="h-4 w-4 animate-spin" /> Receiving your Sprouts session…
+            </p>
+          )}
+          {sessionName && (
+            <div role="status" className="mb-3 border border-primary/50 bg-primary/5 p-3">
+              <p className="text-sm font-medium">Sprouts session loaded</p>
+              <p className="mt-1 text-xs text-muted-foreground">{sessionName} · {stems.length} independent stems and vocal layers</p>
+            </div>
+          )}
           <label className="flex min-h-28 cursor-pointer flex-col items-center justify-center gap-2 border border-dashed border-border px-6 py-8 text-center hover:border-foreground/40">
             <Upload className="h-5 w-5 text-muted-foreground" />
-            <span className="text-sm text-muted-foreground">Tap to choose files, or a Grocery session .zip</span>
+            <span className="text-sm text-muted-foreground">Tap to choose files, or a Sprouts session .zip</span>
             <span className="font-mono text-[10px] uppercase tracking-[0.15em] text-muted-foreground/60">WAV · MP3 · M4A · OGG · FLAC · up to {MAX_STEMS} stems</span>
             <input type="file" multiple accept="audio/*,.zip,application/zip" className="sr-only"
               onChange={(e) => { void addFiles(e.target.files); e.target.value = ''; }} />
@@ -169,8 +222,8 @@ export default function App() {
           {stems.length > 0 && (
             <ul className="mt-3 divide-y divide-border border border-border">
               {stems.map((s) => (
-                <li key={s.id} className="flex items-center gap-3 px-4 py-3">
-                  <div className="min-w-0 flex-1">
+                <li key={s.id} className="flex flex-wrap items-center gap-3 px-4 py-3">
+                  <div className="min-w-0 w-full flex-1 sm:w-auto">
                     <p className="truncate text-sm">{s.name}</p>
                     <p className="font-mono text-[10px] uppercase tracking-[0.12em] text-muted-foreground">
                       {formatBytes(s.size)} · {s.buffer.duration.toFixed(1)}s · {s.lead > 0.05 ? `first sound ${s.lead.toFixed(2)}s` : 'starts right away'}
@@ -199,7 +252,7 @@ export default function App() {
                     ))}
                   </div>
                   <button aria-label={`Remove ${s.name}`} onClick={() => { setStems((p) => p.filter((x) => x.id !== s.id)); stale(); }}
-                    className="flex h-11 w-11 items-center justify-center text-muted-foreground hover:text-foreground"><X className="h-4 w-4" /></button>
+                    className="ml-auto flex h-11 w-11 items-center justify-center text-muted-foreground hover:text-foreground sm:ml-0"><X className="h-4 w-4" /></button>
                 </li>
               ))}
             </ul>
