@@ -19,7 +19,7 @@ export function CatalogView({ beats, previewId, loadingId, onPreview, onOpen }: 
         <div className="max-w-4xl border-b border-[#52615e] pb-8">
           <p className="font-mono text-xs uppercase tracking-[0.2em] text-[#00948c]">Grocery / the beat store</p>
           <h1 className="mt-5 text-5xl font-semibold leading-[0.95] tracking-[-0.055em] text-[#f4f4f4] sm:text-7xl">
-            Find your next beat. Keep your song.
+            Browse beats.
           </h1>
           <p className="mt-6 max-w-2xl text-lg leading-relaxed text-[#a7b0ad]">Preview real beat recordings. Lease once. Download the beat and a plain-English license. Your vocals happen in Sprouts.</p>
         </div>
@@ -41,7 +41,7 @@ export function CatalogView({ beats, previewId, loadingId, onPreview, onOpen }: 
                   <div className="min-w-0 flex-1">
                     <p className="font-mono text-[10px] uppercase tracking-wider text-[#00948c]">{beat.genre}</p>
                     <h3 className="mt-1 truncate text-xl font-medium tracking-tight">{beat.title}</h3>
-                    <p className="mt-1 text-sm text-[#a7b0ad]">{beat.bpm} BPM · {keyName(beat.key)}</p>
+                    <p className="mt-2 text-sm text-[#a7b0ad]">{beat.bpm} BPM · {keyName(beat.key)}</p>
                     <p className="mt-2 font-mono text-xs text-[#f4f4f4]">$19 · non-exclusive</p>
                   </div>
                 </div>
