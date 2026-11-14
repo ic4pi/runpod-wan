@@ -1,8 +1,8 @@
 /**
- * Grocery bundle export — the Sprouts → Grocery handoff.
- * One ZIP: every stem as a strict-spec WAV (44.1kHz / 16-bit / stereo) plus
- * session.json in the Grocery metadata shape, so Beet, Processed/Preserved,
- * or the Grocery hub can rebuild the session with exact bar alignment.
+ * Session bundle export — the Sprouts → Pastry handoff.
+ * One ZIP: every music stem and vocal layer as a strict-spec WAV
+ * (44.1kHz / 16-bit / stereo) plus session.json, so Pastry can rebuild
+ * the session with exact alignment and independent mix controls.
  */
 import JSZip from 'jszip';
 import { audioBufferToWav } from './wav';
@@ -41,18 +41,29 @@ export async function exportGroceryBundle(opts: {
   template: GenreTemplate;
   levels: Levels;
   layers: GroceryLayerExport[];
+  backingStems?: { buffer: AudioBuffer; name: string; role: 'beat' | 'bass' }[];
   beat?: { buffer: AudioBuffer; name: string } | null;
 }): Promise<{ blob: Blob; session: GrocerySession }> {
   const { sessionName, bpm, template, levels, layers, beat } = opts;
+  const backingStems = opts.backingStems?.length
+    ? opts.backingStems.map((stem, index) => ({ ...stem, file: `backing-${index + 1}.wav` }))
+    : [];
   const zip = new JSZip();
 
-  // 1. Session metadata (alignment map for every Grocery app)
+  // 1. Session metadata (alignment map for every Produce app)
   const session = buildGrocerySession({
     sessionName,
     bpm,
     templateId: template.id,
+    levels,
     layers: layers.map((l) => ({ role: l.role, duration: l.duration, pan: l.pan, gain: l.gain })),
-    beatDuration: beat?.buffer.duration,
+    backingStems: backingStems.map((stem) => ({
+      name: stem.name,
+      duration: stem.buffer.duration,
+      role: stem.role,
+      file: stem.file,
+    })),
+    beatDuration: backingStems.length === 0 ? beat?.buffer.duration : undefined,
   });
 
   // 2. Stems — mixed through the template, strict 44.1/16/stereo
@@ -68,20 +79,24 @@ export async function exportGroceryBundle(opts: {
     zip.file(`stems/${fname}`, await toSpecWav(rendered));
   }
 
-  if (beat) {
+  if (backingStems.length > 0) {
+    for (const stem of backingStems) {
+      zip.file(`stems/${stem.file}`, await toSpecWav(stem.buffer));
+    }
+  } else if (beat) {
     zip.file('stems/beat.wav', await toSpecWav(beat.buffer));
   }
 
   zip.file('session.json', grocerySessionJson(session));
   zip.file('README.txt',
-`SPROUTS SESSION — Grocery suite
+`SPROUTS SESSION — Produce suite
 Session: ${sessionName}
 BPM: ${bpm} · Bars: ${session.barCount}
 Template: ${template.name}
 
 Stems are 44.1 kHz / 16-bit / stereo WAV.
-Import session.json + stems/ into Grocery, Beet, or Processed/Preserved
-to rebuild this session with bar-exact alignment.`);
+Open this ZIP in Pastry to mix and master the individual music stems
+and vocal layers with their original alignment.`);
 
   const blob = await zip.generateAsync({ type: 'blob', compression: 'STORE' });
   return { blob, session };

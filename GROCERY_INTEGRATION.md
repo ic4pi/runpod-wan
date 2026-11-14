@@ -18,15 +18,15 @@ Grocery
   downloads the original beat + license ZIP
         ↓
 Sprouts
-  imports the licensed beat
-  records and exports vocals
-        ↓
+  imports a licensed beat, another instrumental, or up to 8 music stems
+  records lead vocals, automatic doubles, backups, and ad-libs
+        ↓  Open in Pastry (on-device handoff) or Session ZIP
 Pastry
-  imports the beat and vocal audio
+  receives every music stem and vocal layer with alignment, template, and levels
   mixes, masters, and exports the finished song
 ```
 
-The handoff is file-based. Grocery links to `/sprouts/`; it does not silently create a Sprouts session or claim an automatic import that is not implemented.
+Grocery links to `/sprouts/`; the licensed beat download is manually selected in Sprouts. After recording, **Open in Pastry** stages the session ZIP in same-origin IndexedDB and opens `/pastry/` with a one-time handoff ID. Pastry consumes and deletes that record after import. This is on-device browser storage, not cloud persistence. **Session ZIP** remains the manual fallback and works across devices.
 
 ## Licensed beat ZIP
 
@@ -78,4 +78,4 @@ Do not describe private delivery as implemented until that endpoint and its auth
 
 ## Module formats
 
-Sprouts, Pastry, and Beet retain their existing audio/session formats and module-specific documentation. This store refactor does not redesign those modules or change their recorder, mixer, MIDI, or session code.
+The Sprouts session ZIP contains `session.json` plus 44.1 kHz, 16-bit, stereo WAV stems. Pastry reads the same bundle through its file importer, so the direct handoff and manual ZIP path share one format. Beet remains delayed and its code is retained.

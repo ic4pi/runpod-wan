@@ -5,6 +5,7 @@
  * WAV spec. Everything here is plain JSON + PCM — no proprietary glue, so
  * any future Grocery app or compatible partner can read it.
  */
+import type { Levels } from '../templates';
 
 export const GROCERY_SAMPLE_RATE = 44100;
 export const GROCERY_BIT_DEPTH = 16;
@@ -31,6 +32,7 @@ export interface GrocerySession {
   bpm: number;
   barCount: number;
   templateId: string;
+  levels?: Levels;
   createdAt: number;
   tracks: GroceryTrack[];
 }
@@ -45,25 +47,35 @@ export function buildGrocerySession(opts: {
   sessionName: string;
   bpm: number;
   templateId: string;
+  levels?: Levels;
   layers: { role: string; duration: number; pan: number | null; gain: number | null }[];
+  /** Individual music stems retained for the Pastry mix. */
+  backingStems?: { name: string; duration: number; role: 'beat' | 'bass'; file?: string }[];
+  /** Legacy single-instrumental input. */
   beatDuration?: number;
 }): GrocerySession {
-  const { sessionName, bpm, templateId, layers, beatDuration } = opts;
+  const { sessionName, bpm, templateId, levels, layers, backingStems = [], beatDuration } = opts;
   const tracks: GroceryTrack[] = [];
   let maxEnd = 0;
 
-  if (beatDuration && beatDuration > 0) {
+  const music = backingStems.length > 0
+    ? backingStems.map((stem, index) => ({ ...stem, file: stem.file ?? `backing-${index + 1}.wav` }))
+    : beatDuration && beatDuration > 0
+      ? [{ name: 'beat', duration: beatDuration, role: 'beat' as const, file: 'beat.wav' }]
+      : [];
+
+  for (const stem of music) {
     tracks.push({
-      name: 'beat',
-      role: 'beat',
+      name: stem.name,
+      role: stem.role,
       startBar: 0,
       offsetSeconds: 0,
-      duration: beatDuration,
+      duration: stem.duration,
       pan: null,
       gain: null,
-      file: 'beat.wav',
+      file: stem.file,
     });
-    maxEnd = Math.max(maxEnd, beatDuration);
+    maxEnd = Math.max(maxEnd, stem.duration);
   }
 
   const roleCounts: Record<string, number> = {};
@@ -90,6 +102,7 @@ export function buildGrocerySession(opts: {
     bpm,
     barCount: Math.max(1, Math.ceil(secondsToBars(maxEnd, bpm))),
     templateId,
+    levels,
     createdAt: Date.now(),
     tracks,
   };

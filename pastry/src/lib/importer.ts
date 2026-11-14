@@ -1,6 +1,6 @@
 import JSZip from 'jszip';
 import { decodeBlob, type StemInput } from './audio/render';
-import { guessRole } from './templates';
+import { guessRole, type Levels } from './templates';
 
 export type Role = StemInput['role'];
 export interface Stem { id: string; name: string; size: number; buffer: AudioBuffer; role: Role; offset: number; lead: number }
@@ -37,10 +37,26 @@ async function toStem(blob: Blob, name: string, size: number, role: Role, offset
   return { id: newId(), name, size, buffer, role, offset, lead: leadingSilence(buffer) };
 }
 
-/** Import loose audio files and/or Grocery session bundles (.zip with session.json + stems). */
-export async function importFiles(files: File[]): Promise<{ stems: Stem[]; skipped: string[] }> {
+export interface ImportedSession {
+  name?: string;
+  templateId?: string;
+  levels?: Levels;
+}
+
+function parseLevels(value: unknown): Levels | undefined {
+  if (!value || typeof value !== 'object') return undefined;
+  const input = value as Record<string, unknown>;
+  const keys = ['warmth', 'brightness', 'punch', 'space'] as const;
+  if (!keys.every((key) => typeof input[key] === 'number' && Number.isFinite(input[key]))) return undefined;
+  const clamp = (key: (typeof keys)[number]) => Math.max(0, Math.min(2, input[key] as number));
+  return { warmth: clamp('warmth'), brightness: clamp('brightness'), punch: clamp('punch'), space: clamp('space') };
+}
+
+/** Import loose audio files and/or Sprouts session bundles (.zip with session.json + stems). */
+export async function importFiles(files: File[]): Promise<{ stems: Stem[]; skipped: string[]; session?: ImportedSession }> {
   const stems: Stem[] = [];
   const skipped: string[] = [];
+  let session: ImportedSession | undefined;
 
   for (const f of files) {
     try {
@@ -54,6 +70,11 @@ export async function importFiles(files: File[]): Promise<{ stems: Stem[]; skipp
             const o = JSON.parse(await sf.async('string'));
             if (Array.isArray(o.tracks)) {
               listed = o.tracks;
+              session = {
+                name: typeof o.sessionName === 'string' ? o.sessionName : undefined,
+                templateId: typeof o.templateId === 'string' ? o.templateId : undefined,
+                levels: parseLevels(o.levels),
+              };
               if (typeof o.bpm === 'number' && o.bpm > 0) {
                 // Beet writes beatsPerBar/beatUnit since the meter update; older zips are 4/4.
                 const beats = typeof o.beatsPerBar === 'number' && o.beatsPerBar >= 1 && o.beatsPerBar <= 8 ? o.beatsPerBar : 4;
@@ -70,7 +91,7 @@ export async function importFiles(files: File[]): Promise<{ stems: Stem[]; skipp
           used.add(e.name);
           const ext = e.name.split('.').pop()!.toLowerCase();
           const data = await e.async('arraybuffer');
-          stems.push(await toStem(new Blob([data], { type: MIME[ext] ?? 'audio/wav' }), base(e.name), data.byteLength, roleFromSession(t.role, e.name), (t.startBar ?? 0) * barSeconds + (t.offsetSeconds ?? 0)));
+          stems.push(await toStem(new Blob([data], { type: MIME[ext] ?? 'audio/wav' }), t.name || base(e.name), data.byteLength, roleFromSession(t.role, e.name), (t.startBar ?? 0) * barSeconds + (t.offsetSeconds ?? 0)));
         }
         for (const e of zip.file(AUDIO_EXT)) {
           if (used.has(e.name)) continue;
@@ -87,5 +108,5 @@ export async function importFiles(files: File[]): Promise<{ stems: Stem[]; skipp
       skipped.push(`${f.name} (could not be read)`);
     }
   }
-  return { stems, skipped };
+  return { stems, skipped, session };
 }
