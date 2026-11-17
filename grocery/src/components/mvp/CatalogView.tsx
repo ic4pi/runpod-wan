@@ -15,6 +15,8 @@ const keyName = (key: number) => ['C', 'C♯', 'D', 'D♯', 'E', 'F', 'F♯', 'G
 const money = (cents: number) => `$${(cents / 100).toFixed(cents % 100 === 0 ? 0 : 2)}`;
 
 export function CatalogView({ beats, previewId, loadingId, onPreview, onOpen }: Props) {
+  const headlineBeat = beats.find((beat) => beat.id === previewId) ?? beats[0];
+
   return (
     <main>
       <section className="border-b border-[#263331]">
@@ -22,8 +24,8 @@ export function CatalogView({ beats, previewId, loadingId, onPreview, onOpen }: 
           <div className="hero-enter flex flex-col justify-between px-5 pb-10 pt-12 sm:px-8 sm:pb-14 sm:pt-16 lg:min-h-[600px] lg:py-16 lg:pr-14">
             <div>
               <p className="section-marker font-mono text-[10px] uppercase tracking-[0.22em] text-[#44a6e4]">Grocery / quantum provisions</p>
-              <h1 className="mt-8 max-w-[720px] text-[clamp(3.35rem,7.2vw,7.4rem)] font-light leading-[0.86] tracking-[-0.072em] text-[#f4f4f4] lg:text-[clamp(4.4rem,6.3vw,6.8rem)]">
-                A grocery store at the <span className="font-serif-accent font-normal italic tracking-[-0.035em] text-[#f0eee6]">Planck scale.</span>
+              <h1 className="mt-8 max-w-[720px] break-words text-[clamp(3.35rem,7.2vw,7.4rem)] font-light leading-[0.86] tracking-[-0.072em] text-[#f4f4f4] lg:text-[clamp(4.4rem,6.3vw,6.8rem)]">
+                {headlineBeat?.title ?? 'Grocery'}
               </h1>
               <p className="mt-8 max-w-[510px] text-base leading-relaxed text-[#a7b0ad] sm:text-lg">
                 Real beat recordings, measured in BPM. Preview the audio, take a clear lease, then record your vocals in Sprouts.
@@ -35,7 +37,7 @@ export function CatalogView({ beats, previewId, loadingId, onPreview, onOpen }: 
                 <a href="#catalog" className="flex min-h-[52px] items-center justify-center gap-3 rounded-full bg-[#f4f4f4] px-6 text-sm font-semibold text-[#080b0b] transition duration-300 hover:bg-[#f7e84c] focus-visible:outline-[#44a6e4]">
                   Browse the shelves <ArrowDown className="h-4 w-4" />
                 </a>
-                <a href="/sprouts/" className="flex min-h-[52px] items-center justify-center gap-3 rounded-full border border-[#52615e] px-6 text-sm font-medium text-[#f4f4f4] transition duration-300 hover:border-[#44a6e4] hover:text-[#44a6e4]">
+                <a href="/sprouts/" className="flex min-h-[52px] items-center justify-center gap-3 rounded-full border border-[#52615e] px-5 text-sm font-medium text-[#f4f4f4] transition duration-300 hover:border-[#44a6e4] hover:text-[#44a6e4]">
                   Open Sprouts <ArrowUpRight className="h-4 w-4" />
                 </a>
               </div>
