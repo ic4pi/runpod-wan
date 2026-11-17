@@ -37,7 +37,7 @@ export function CatalogView({ beats, previewId, loadingId, onPreview, onOpen }: 
                 <a href="#catalog" className="flex min-h-[52px] items-center justify-center gap-3 rounded-full bg-[#f4f4f4] px-6 text-sm font-semibold text-[#080b0b] transition duration-300 hover:bg-[#f7e84c] focus-visible:outline-[#44a6e4]">
                   Browse the shelves <ArrowDown className="h-4 w-4" />
                 </a>
-                <a href="/sprouts/" className="flex min-h-[52px] items-center justify-center gap-3 rounded-full border border-[#52615e] px-5 text-sm font-medium text-[#f4f4f4] transition duration-300 hover:border-[#44a6e4] hover:text-[#44a6e4]">
+                <a href="/sprouts/" className="flex min-h-[52px] items-center justify-center gap-3 rounded-full border border-[#52615e] px-6 text-sm font-medium text-[#f4f4f4] transition duration-300 hover:border-[#44a6e4] hover:text-[#44a6e4]">
                   Open Sprouts <ArrowUpRight className="h-4 w-4" />
                 </a>
               </div>
