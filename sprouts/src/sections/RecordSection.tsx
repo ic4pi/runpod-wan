@@ -842,7 +842,7 @@ export function RecordSection() {
         <div className="flex items-center gap-3">
           <button
             onClick={() => setMonitor(!monitor)}
-            className={`flex min-h-11 items-center gap-2 border px-4 py-2 font-mono text-xs uppercase tracking-[0.15em] transition-colors duration-150 focus-visible:outline-2 focus-visible:outline-primary ${
+            className={`flex min-h-11 items-center gap-2 border px-4 py-2 font-mono text-xs uppercase tracking-[0.15em] transition-colors duration-200 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary ${
               monitor ? 'border-primary/60 text-primary' : 'border-border text-muted-foreground hover:text-foreground'
             }`}
           >
