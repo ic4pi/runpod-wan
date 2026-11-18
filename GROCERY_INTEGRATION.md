@@ -9,35 +9,24 @@
 
 Do not move vocal recording into Grocery. Do not use Grocery's old, unused synthesizer files to create catalog inventory.
 
-## Current handoffs
+## Current handoff
 
 ```text
 Grocery
-  previews a real beat recording with audible Capi Capi producer tags
+  previews a real beat recording
   sells a non-exclusive lease through Stripe
-  downloads the original beat + license ZIP after verified ownership
-        ↓  Use in Sprouts (on-device handoff)
+  downloads the original beat + license ZIP
+        ↓
 Sprouts
-  receives the selected tagged trial beat or verified clean leased beat
-  also accepts another instrumental or up to 8 independent music stems
-  records lead vocals, automatic doubles, backups, and ad-libs
-        ↓  Open in Pastry (on-device handoff) or Session ZIP
+  imports the licensed beat
+  records and exports vocals
+        ↓
 Pastry
-  receives every music stem and vocal layer with alignment, template, and levels
+  imports the beat and vocal audio
   mixes, masters, and exports the finished song
 ```
 
-**Use in Sprouts** renders the selected beat to WAV, stages it in the `grocery-sprouts-handoffs` IndexedDB database, and opens `/sprouts/` with a one-time handoff ID. Sprouts consumes and deletes that record after import, restores the catalog BPM, and shows whether the beat is tagged or clean. Records expire after one hour.
-
-**Upload a track or stems** on the Grocery home page stages one user track or up to eight stems through the same one-time handoff and opens them in Sprouts. This route requires no beat purchase or lease and adds no producer tags to the user's own audio. Grocery does not duplicate the Sprouts recorder.
-
-Store previews are always tagged. An unleased **Use in Sprouts** transfer also contains the tags rendered into the audio itself, so they survive recording, Session ZIP export, Pastry import, and Pastry WAV export. Tags begin at 4 seconds and repeat every 24 seconds; recordings shorter than 6 seconds receive one tag near the start. The spoken tag is level-normalized so it remains audible.
-
-Clean audio is selected only when `api/beat-license.ts` returns a database-backed lease. Signed-out, missing, failed, or unclear license checks fail closed to tagged audio. The browser cannot grant a lease.
-
-After recording, **Open in Pastry** stages the session ZIP in the existing `produce-suite-handoffs` IndexedDB database and opens `/pastry/` with another one-time, one-hour handoff ID. Both transfers are same-origin, on-device browser storage, not cloud persistence. **Session ZIP** remains the manual fallback and works across devices.
-
-The current spoken tag in `grocery/src/lib/mvp/capiTag.ts` is a generated production placeholder, not the user's own voice. Replace it with the desired recorded “Capi Capi” tag before commercial launch if needed.
+The handoff is file-based. Grocery links to `/sprouts/`; it does not silently create a Sprouts session or claim an automatic import that is not implemented.
 
 ## Licensed beat ZIP
 
@@ -89,4 +78,4 @@ Do not describe private delivery as implemented until that endpoint and its auth
 
 ## Module formats
 
-The Sprouts session ZIP contains `session.json` plus 44.1 kHz, 16-bit, stereo WAV stems. Pastry reads the same bundle through its file importer, so the direct handoff and manual ZIP path share one format. Beet remains delayed and its code is retained.
+Sprouts, Pastry, and Beet retain their existing audio/session formats and module-specific documentation. This store refactor does not redesign those modules or change their recorder, mixer, MIDI, or session code.
