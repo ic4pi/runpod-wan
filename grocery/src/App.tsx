@@ -9,7 +9,7 @@ import { beatHasAudio, CATALOG_BEATS, getCatalogBeat, type CatalogBeat } from '@
 import { audioContext, loadCatalogAudio, loadPreviewAudio } from '@/lib/mvp/audio';
 import { downloadBeatRelease, type BeatLicense } from '@/lib/mvp/release';
 import { audioBufferToWav } from '@/lib/audio/wav';
-import { stageSproutsBeat } from '@/lib/mvp/sproutsHandoff';
+import { stageSproutsBeat, stageSproutsUpload } from '@/lib/mvp/sproutsHandoff';
 
 type Stage = 'catalog' | 'beat';
 interface AccountState { loading: boolean; available: boolean; payments: boolean; email: string | null }
@@ -30,6 +30,7 @@ export default function App() {
   const playback = useRef<AudioBufferSourceNode | null>(null);
   const playbackToken = useRef(0);
   const audioCache = useRef(new Map<string, AudioBuffer>());
+  const uploadInputRef = useRef<HTMLInputElement>(null);
 
   const stopPreview = useCallback(() => {
     playbackToken.current += 1;
@@ -195,6 +196,21 @@ export default function App() {
     }
   };
 
+  const uploadToSprouts = async (files: FileList | null) => {
+    if (!files?.length) return;
+    stopPreview();
+    setBusy('upload');
+    try {
+      const handoffId = await stageSproutsUpload(Array.from(files));
+      window.location.assign(`/sprouts/?from=grocery&upload=${encodeURIComponent(handoffId)}`);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Your audio could not be sent to Sprouts. Try again.');
+    } finally {
+      setBusy('');
+      if (uploadInputRef.current) uploadInputRef.current.value = '';
+    }
+  };
+
   const purchaseAction = async () => {
     if (!selected) return;
     if (!beatHasAudio(selected)) return toast.error('This beat is not available yet.');
@@ -253,6 +269,8 @@ export default function App() {
           loadingId={busy.startsWith('preview:') ? busy.split(':')[1] : null}
           onPreview={(beat) => void preview(beat)}
           onOpen={openBeat}
+          onUpload={() => uploadInputRef.current?.click()}
+          uploading={busy === 'upload'}
         />
       )}
 
@@ -308,6 +326,14 @@ export default function App() {
         </main>
       )}
 
+      <input
+        ref={uploadInputRef}
+        type="file"
+        className="hidden"
+        accept="audio/*,.wav,.mp3,.m4a,.aac,.ogg,.opus,.flac,.webm"
+        multiple
+        onChange={(event) => void uploadToSprouts(event.target.files)}
+      />
       <AuthDialog open={authOpen} reason={authReason} onClose={() => setAuthOpen(false)} onSuccess={refreshAccount} />
       <Toaster theme="dark" position="top-center" />
     </div>

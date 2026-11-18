@@ -1,11 +1,19 @@
 export interface GroceryBeatHandoff {
   id: string;
+  kind: 'beat';
   blob: Blob;
   filename: string;
   title: string;
   producer: string;
   bpm: number;
   licensed: boolean;
+  createdAt: number;
+}
+
+export interface GroceryUploadHandoff {
+  id: string;
+  kind: 'upload';
+  files: { blob: Blob; filename: string }[];
   createdAt: number;
 }
 
@@ -25,20 +33,34 @@ function openDatabase(): Promise<IDBDatabase> {
   });
 }
 
-/** Stage a one-time, same-origin beat for Sprouts. No account data is stored here. */
-export async function stageSproutsBeat(input: Omit<GroceryBeatHandoff, 'id' | 'createdAt'>): Promise<string> {
+async function stageRecord(record: GroceryBeatHandoff | GroceryUploadHandoff): Promise<string> {
   const db = await openDatabase();
-  const id = crypto.randomUUID();
   try {
     await new Promise<void>((resolve, reject) => {
       const tx = db.transaction(STORE, 'readwrite');
-      tx.objectStore(STORE).put({ ...input, id, createdAt: Date.now() } satisfies GroceryBeatHandoff);
+      tx.objectStore(STORE).put(record);
       tx.oncomplete = () => resolve();
-      tx.onerror = () => reject(tx.error ?? new Error('The beat could not be staged for Sprouts.'));
-      tx.onabort = () => reject(tx.error ?? new Error('The beat handoff was interrupted.'));
+      tx.onerror = () => reject(tx.error ?? new Error('The audio could not be staged for Sprouts.'));
+      tx.onabort = () => reject(tx.error ?? new Error('The audio handoff was interrupted.'));
     });
-    return id;
+    return record.id;
   } finally {
     db.close();
   }
+}
+
+/** Stage a one-time, same-origin beat for Sprouts. No account data is stored here. */
+export function stageSproutsBeat(input: Omit<GroceryBeatHandoff, 'id' | 'createdAt' | 'kind'>): Promise<string> {
+  return stageRecord({ ...input, id: crypto.randomUUID(), kind: 'beat', createdAt: Date.now() });
+}
+
+/** Stage the user's own track or up to eight stems without a store purchase. */
+export function stageSproutsUpload(files: File[]): Promise<string> {
+  if (files.length < 1 || files.length > 8) throw new Error('Choose one track or up to eight stems.');
+  return stageRecord({
+    id: crypto.randomUUID(),
+    kind: 'upload',
+    files: files.map((file) => ({ blob: file, filename: file.name })),
+    createdAt: Date.now(),
+  });
 }

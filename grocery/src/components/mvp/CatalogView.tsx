@@ -1,4 +1,4 @@
-import { ArrowDown, ArrowRight, ArrowUpRight, Loader2, Pause, Play } from 'lucide-react';
+import { ArrowRight, ArrowUpRight, Loader2, Pause, Play, Upload } from 'lucide-react';
 import { beatHasAudio, type CatalogBeat } from '../../lib/catalog';
 import { BeatArt } from './BeatArt';
 import { QuantumShelf } from './QuantumShelf';
@@ -9,12 +9,14 @@ interface Props {
   loadingId: string | null;
   onPreview: (beat: CatalogBeat) => void;
   onOpen: (beat: CatalogBeat) => void;
+  onUpload: () => void;
+  uploading: boolean;
 }
 
 const keyName = (key: number) => ['C', 'C♯', 'D', 'D♯', 'E', 'F', 'F♯', 'G', 'G♯', 'A', 'A♯', 'B'][key];
 const money = (cents: number) => `$${(cents / 100).toFixed(cents % 100 === 0 ? 0 : 2)}`;
 
-export function CatalogView({ beats, previewId, loadingId, onPreview, onOpen }: Props) {
+export function CatalogView({ beats, previewId, loadingId, onPreview, onOpen, onUpload, uploading }: Props) {
   return (
     <main>
       <section className="border-b border-[#263331]">
@@ -26,23 +28,24 @@ export function CatalogView({ beats, previewId, loadingId, onPreview, onOpen }: 
                 A grocery store for <span className="font-serif-accent font-normal italic tracking-[-0.035em] text-[#f0eee6]">beats.</span>
               </h1>
               <p className="mt-8 max-w-[510px] text-base leading-relaxed text-[#a7b0ad] sm:text-lg">
-                Real beat recordings, measured in BPM. Preview the audio, take a clear lease, then record your vocals in Sprouts.
+                Upload your own track or up to 8 stems, then record and share in Sprouts. Buying or leasing a beat is optional.
               </p>
             </div>
 
             <div className="mt-10 lg:mt-14">
               <div className="flex flex-col gap-3 sm:flex-row">
-                <a href="#catalog" className="flex min-h-[52px] items-center justify-center gap-3 rounded-full bg-[#f4f4f4] px-6 text-sm font-semibold text-[#080b0b] transition duration-300 hover:bg-[#f7e84c] focus-visible:outline-[#44a6e4]">
-                  Browse the shelves <ArrowDown className="h-4 w-4" />
-                </a>
+                <button type="button" onClick={onUpload} disabled={uploading} className="flex min-h-[52px] cursor-pointer items-center justify-center gap-3 rounded-full bg-[#f4f4f4] px-6 text-sm font-semibold text-[#080b0b] transition duration-300 hover:bg-[#f7e84c] focus-visible:outline-[#44a6e4] disabled:cursor-wait disabled:opacity-60">
+                  {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
+                  {uploading ? 'Opening Sprouts…' : 'Upload a track or stems'}
+                </button>
                 <a href="/sprouts/" className="flex min-h-[52px] items-center justify-center gap-3 rounded-full border border-[#52615e] px-6 text-sm font-medium text-[#f4f4f4] transition duration-300 hover:border-[#44a6e4] hover:text-[#44a6e4]">
-                  Open Sprouts <ArrowUpRight className="h-4 w-4" />
+                  Record in Sprouts <ArrowUpRight className="h-4 w-4" />
                 </a>
               </div>
               <div className="mt-8 flex flex-wrap gap-x-7 gap-y-2 font-mono text-[9px] uppercase tracking-[0.18em] text-[#a7b0ad]">
-                <span>Real audio only</span>
-                <span>Non-exclusive leases</span>
-                <span>Plain-English license</span>
+                <span>Your audio welcome</span>
+                <span>No beat purchase required</span>
+                <span>Up to 8 stems</span>
               </div>
             </div>
           </div>
@@ -119,16 +122,16 @@ export function CatalogView({ beats, previewId, loadingId, onPreview, onOpen }: 
         <div className="mx-auto grid w-full max-w-[1500px] gap-10 px-5 py-16 sm:px-8 sm:py-20 lg:grid-cols-[0.85fr_1.15fr] lg:gap-20">
           <div>
             <p className="section-marker font-mono text-[10px] uppercase tracking-[0.22em] text-[#44a6e4]">From shelf to session</p>
-            <h2 className="mt-5 max-w-md text-4xl font-light leading-[1.02] tracking-[-0.045em] text-[#f4f4f4] sm:text-5xl">A clean route through the store.</h2>
+            <h2 className="mt-5 max-w-md text-4xl font-light leading-[1.02] tracking-[-0.045em] text-[#f4f4f4] sm:text-5xl">Start with your audio or a beat.</h2>
             <a href="/sprouts/" className="mt-8 inline-flex min-h-12 items-center gap-3 rounded-full bg-[#f4f4f4] px-6 text-sm font-semibold text-[#080b0b] transition duration-300 hover:bg-[#f7e84c]">
               Record in Sprouts <ArrowUpRight className="h-4 w-4" />
             </a>
           </div>
           <ol className="grid gap-0 sm:grid-cols-3">
             {[
-              ['01', 'Audition', 'Preview the actual beat recording before you make a decision.'],
-              ['02', 'Lease', 'Sign in only to lease or download. Receive the original audio and license.'],
-              ['03', 'Create', 'Record vocals in Sprouts, then mix and master the session in Pastry.'],
+              ['01', 'Add music', 'Upload your own track or stems, or choose a beat from Grocery.'],
+              ['02', 'Record', 'Record vocals in Sprouts. No beat purchase or lease is required.'],
+              ['03', 'Finish & share', 'Mix and master in Pastry, then share your finished song.'],
             ].map(([number, title, copy]) => (
               <li key={number} className="border-t border-[#52615e] py-5 sm:px-5 sm:py-0 sm:pt-5 first:sm:pl-0 last:sm:pr-0">
                 <span className="font-mono text-xs text-[#f7e84c]">{number}</span>

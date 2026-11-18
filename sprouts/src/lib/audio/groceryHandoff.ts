@@ -1,5 +1,6 @@
 export interface GroceryBeatHandoff {
   id: string;
+  kind?: 'beat';
   blob: Blob;
   filename: string;
   title: string;
@@ -8,6 +9,15 @@ export interface GroceryBeatHandoff {
   licensed: boolean;
   createdAt: number;
 }
+
+export interface GroceryUploadHandoff {
+  id: string;
+  kind: 'upload';
+  files: { blob: Blob; filename: string }[];
+  createdAt: number;
+}
+
+export type GroceryHandoff = GroceryBeatHandoff | GroceryUploadHandoff;
 
 const DB_NAME = 'grocery-sprouts-handoffs';
 const STORE = 'beats';
@@ -26,22 +36,27 @@ function openDatabase(): Promise<IDBDatabase> {
   });
 }
 
-/** Read and remove the one-time beat so refreshes cannot duplicate it. */
-export async function consumeGroceryBeat(id: string): Promise<GroceryBeatHandoff | null> {
+/** Read and remove the one-time handoff so refreshes cannot duplicate it. */
+export async function consumeGroceryHandoff(id: string): Promise<GroceryHandoff | null> {
   const db = await openDatabase();
   try {
-    const record = await new Promise<GroceryBeatHandoff | undefined>((resolve, reject) => {
+    const record = await new Promise<GroceryHandoff | undefined>((resolve, reject) => {
       const tx = db.transaction(STORE, 'readwrite');
       const store = tx.objectStore(STORE);
       const request = store.get(id);
       request.onsuccess = () => {
         store.delete(id);
-        resolve(request.result as GroceryBeatHandoff | undefined);
+        resolve(request.result as GroceryHandoff | undefined);
       };
-      request.onerror = () => reject(request.error ?? new Error('The Grocery beat could not be read.'));
+      request.onerror = () => reject(request.error ?? new Error('The Grocery audio could not be read.'));
       tx.onabort = () => reject(tx.error ?? new Error('The Grocery handoff was interrupted.'));
     });
     if (!record || Date.now() - record.createdAt > MAX_AGE) return null;
+    if (record.kind === 'upload') {
+      const valid = Array.isArray(record.files) && record.files.length > 0 && record.files.length <= 8
+        && record.files.every((file) => file.blob instanceof Blob && typeof file.filename === 'string');
+      return valid ? record : null;
+    }
     if (!(record.blob instanceof Blob) || typeof record.filename !== 'string' || typeof record.licensed !== 'boolean') return null;
     return record;
   } finally {
