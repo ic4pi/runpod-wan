@@ -8,7 +8,7 @@ import { cancelBleed, makeDouble, mixLayers, mixStems, decodeBlob } from '@/lib/
 import { downloadBlob, shareOrDownload } from '@/lib/audio/export';
 import { exportGroceryBundle } from '@/lib/audio/exportGrocery';
 import { stagePastryHandoff } from '@/lib/audio/handoff';
-import { consumeGroceryBeat } from '@/lib/audio/groceryHandoff';
+import { consumeGroceryHandoff } from '@/lib/audio/groceryHandoff';
 import { FX_LIST } from '@/lib/audio/fx';
 import { audioBufferToWav, formatBytes, formatDuration } from '@/lib/audio/wav';
 import { useSession } from '@/lib/session';
@@ -269,28 +269,37 @@ export function RecordSection() {
     }
   }, [setBeatState]);
 
-  // A Grocery beat arrives once through same-origin IndexedDB. Clean audio is
-  // already limited to verified leases; unleased sessions retain their tags.
+  // Store beats and the user's own uploads arrive once through same-origin
+  // IndexedDB. Uploads need no lease; unleased store beats retain their tags.
   useEffect(() => {
     if (groceryHandoffStartedRef.current) return;
     const params = new URLSearchParams(window.location.search);
-    const id = params.get('beat');
+    const id = params.get('beat') ?? params.get('upload');
     if (params.get('from') !== 'grocery' || !id) return;
     groceryHandoffStartedRef.current = true;
 
     void (async () => {
       try {
-        const handoff = await consumeGroceryBeat(id);
-        if (!handoff) throw new Error('This Grocery beat expired or was already opened.');
-        await addBeat([new File([handoff.blob], handoff.filename, { type: handoff.blob.type || 'audio/wav' })]);
-        if (!beatRef.current) throw new Error('The Grocery audio could not be decoded.');
-        setBpm(handoff.bpm);
-        setGroceryBeatNotice(handoff.licensed
-          ? `Verified lease · clean “${handoff.title}” · credit Beat by ${handoff.producer}.`
-          : `Unleased “${handoff.title}” · Capi Capi tags are rendered into this session and its Pastry exports. Lease it in Grocery for the clean beat.`);
+        const handoff = await consumeGroceryHandoff(id);
+        if (!handoff) throw new Error('This Grocery audio expired or was already opened.');
+        if (handoff.kind === 'upload') {
+          const files = handoff.files.map((file) => new File([file.blob], file.filename, {
+            type: file.blob.type || 'audio/wav',
+          }));
+          await addBeat(files);
+          if (!beatRef.current) throw new Error('Your audio could not be decoded.');
+          setGroceryBeatNotice('Your own audio · no beat purchase or lease needed.');
+        } else {
+          await addBeat([new File([handoff.blob], handoff.filename, { type: handoff.blob.type || 'audio/wav' })]);
+          if (!beatRef.current) throw new Error('The Grocery audio could not be decoded.');
+          setBpm(handoff.bpm);
+          setGroceryBeatNotice(handoff.licensed
+            ? `Verified lease · clean “${handoff.title}” · credit Beat by ${handoff.producer}.`
+            : `Unleased “${handoff.title}” · Capi Capi tags are rendered into this session and its Pastry exports. Lease it in Grocery for the clean beat.`);
+        }
         window.history.replaceState({}, '', window.location.pathname);
       } catch (error) {
-        toast.error(error instanceof Error ? error.message : 'The Grocery beat could not be opened.');
+        toast.error(error instanceof Error ? error.message : 'The Grocery audio could not be opened.');
       }
     })();
   }, [addBeat]);
@@ -833,7 +842,7 @@ export function RecordSection() {
         <div className="flex items-center gap-3">
           <button
             onClick={() => setMonitor(!monitor)}
-            className={`flex min-h-11 items-center gap-2 border px-4 py-2 font-mono text-xs uppercase tracking-[0.15em] transition-colors duration-200 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary ${
+            className={`flex min-h-11 items-center gap-2 border px-4 py-2 font-mono text-xs uppercase tracking-[0.15em] transition-colors duration-150 focus-visible:outline-2 focus-visible:outline-primary ${
               monitor ? 'border-primary/60 text-primary' : 'border-border text-muted-foreground hover:text-foreground'
             }`}
           >
