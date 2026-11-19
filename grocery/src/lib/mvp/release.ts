@@ -65,6 +65,6 @@ export async function downloadBeatRelease(beat: CatalogBeat, license: BeatLicens
   zip.file(`${base}.${extension(beat, audio)}`, audio);
   zip.file('LICENSE.txt', licenseText(license));
   zip.file('purchase.json', JSON.stringify(license, null, 2));
-  zip.file('READ-ME.txt', `Beat: ${beat.title}\nProducer: ${beat.producer}\n\nKeep LICENSE.txt with your records. Record your vocals in Sprouts.\n`);
+  zip.file('READ-ME.txt', `Beat: ${beat.title}\nProducer: ${beat.producer}\n\nKeep LICENSE.txt with your records. Record your vocals in Bakery.\n`);
   save(await zip.generateAsync({ type: 'blob' }), `${base}-licensed-beat.zip`);
 }

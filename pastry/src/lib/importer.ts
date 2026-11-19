@@ -52,7 +52,7 @@ function parseLevels(value: unknown): Levels | undefined {
   return { warmth: clamp('warmth'), brightness: clamp('brightness'), punch: clamp('punch'), space: clamp('space') };
 }
 
-/** Import loose audio files and/or Sprouts session bundles (.zip with session.json + stems). */
+/** Import loose audio files and/or Bakery session bundles (.zip with session.json + stems). */
 export async function importFiles(files: File[]): Promise<{ stems: Stem[]; skipped: string[]; session?: ImportedSession }> {
   const stems: Stem[] = [];
   const skipped: string[] = [];

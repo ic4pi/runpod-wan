@@ -16,8 +16,18 @@
       "permanent": true
     },
     {
+      "source": "/bakery",
+      "destination": "/bakery/",
+      "permanent": true
+    },
+    {
       "source": "/sprouts",
-      "destination": "/sprouts/",
+      "destination": "/bakery/",
+      "permanent": true
+    },
+    {
+      "source": "/sprouts/:path*",
+      "destination": "/bakery/",
       "permanent": true
     }
   ],
@@ -149,7 +159,7 @@
       ]
     },
     {
-      "source": "/sprouts/(.*)",
+      "source": "/bakery/(.*)",
       "headers": [
         {
           "key": "Cache-Control",

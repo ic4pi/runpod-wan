@@ -1,4 +1,4 @@
-/** Short-lived, same-origin session handoff from Sprouts to Pastry. */
+/** Short-lived, same-origin session handoff from Bakery to Pastry. */
 const DB_NAME = 'produce-suite-handoffs';
 const STORE = 'pastry';
 const VERSION = 1;

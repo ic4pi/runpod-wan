@@ -40,7 +40,7 @@ async function stageRecord(record: GroceryBeatHandoff | GroceryUploadHandoff): P
       const tx = db.transaction(STORE, 'readwrite');
       tx.objectStore(STORE).put(record);
       tx.oncomplete = () => resolve();
-      tx.onerror = () => reject(tx.error ?? new Error('The audio could not be staged for Sprouts.'));
+      tx.onerror = () => reject(tx.error ?? new Error('The audio could not be staged for Bakery.'));
       tx.onabort = () => reject(tx.error ?? new Error('The audio handoff was interrupted.'));
     });
     return record.id;
@@ -49,13 +49,13 @@ async function stageRecord(record: GroceryBeatHandoff | GroceryUploadHandoff): P
   }
 }
 
-/** Stage a one-time, same-origin beat for Sprouts. No account data is stored here. */
-export function stageSproutsBeat(input: Omit<GroceryBeatHandoff, 'id' | 'createdAt' | 'kind'>): Promise<string> {
+/** Stage a one-time, same-origin beat for Bakery. No account data is stored here. */
+export function stageBakeryBeat(input: Omit<GroceryBeatHandoff, 'id' | 'createdAt' | 'kind'>): Promise<string> {
   return stageRecord({ ...input, id: crypto.randomUUID(), kind: 'beat', createdAt: Date.now() });
 }
 
 /** Stage the user's own track or up to eight stems without a store purchase. */
-export function stageSproutsUpload(files: File[]): Promise<string> {
+export function stageBakeryUpload(files: File[]): Promise<string> {
   if (files.length < 1 || files.length > 8) throw new Error('Choose one track or up to eight stems.');
   return stageRecord({
     id: crypto.randomUUID(),

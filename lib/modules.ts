@@ -3,10 +3,10 @@
  * promise: turn rough recordings into music people want to listen to.
  *   Pastry  finishes the song (mix and master)       -> biggest contribution
  *   Beet    makes the backing track from scratch     -> next
- *   Sprouts polishes the vocal before it is mixed    -> smallest of the three
+ *   Bakery polishes the vocal before it is mixed    -> smallest of the three
  * Diced is not built yet, so it cannot be bought.
  */
-export type ModuleId = 'pastry' | 'beet' | 'sprouts' | 'diced';
+export type ModuleId = 'pastry' | 'beet' | 'bakery' | 'diced';
 
 export interface ModuleInfo {
   id: ModuleId;
@@ -29,7 +29,7 @@ export const MODULES: ModuleInfo[] = [
     priceCents: 499, status: 'live',
   },
   {
-    id: 'sprouts', name: 'Sprouts', tagline: 'Polish the vocal',
+    id: 'bakery', name: 'Bakery', tagline: 'Polish the vocal',
     why: 'Vocal effects, layered takes and templates that lift the recording before it is mixed.',
     priceCents: 399, status: 'live',
   },
@@ -40,7 +40,7 @@ export const MODULES: ModuleInfo[] = [
   },
 ];
 
-export const PAID_PATHS: ModuleId[] = ['pastry', 'beet', 'sprouts'];
+export const PAID_PATHS: ModuleId[] = ['pastry', 'beet', 'bakery'];
 
 export const getModule = (id: unknown): ModuleInfo | undefined => MODULES.find((m) => m.id === id);
 export const isBuyable = (m: ModuleInfo | undefined): m is ModuleInfo & { priceCents: number } =>

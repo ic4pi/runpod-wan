@@ -1,5 +1,5 @@
 /**
- * Sprouts controller layer — M-VAVE SMK-25 as the hardware template.
+ * Bakery controller layer — M-VAVE SMK-25 as the hardware template.
  * WebMIDI over Bluetooth (the SMK-25 advertises as a BLE MIDI device) with a
  * graceful fallback when WebMIDI or the device is unavailable.
  *
@@ -21,12 +21,12 @@
  *   MMC SysEx, which browsers refuse to deliver (sysex is blocked). So the
  *   supported path is: in CubeSuite set the buttons to CC mode
  *   (REC→CC101, PLAY→CC102, STOP→CC103) or Note mode (E3/F3/F#3/G3 = notes
- *   52–55), then save it as a "SPROUTS" preset. We also listen for the
+ *   52–55), then save it as a "BAKERY" preset. We also listen for the
  *   single-byte system real-time messages 0xFA/0xFB (play) and 0xFC (stop)
  *   — some firmware modes emit those for free, no setup needed.
  */
 
-export type SproutsAction =
+export type BakeryAction =
   | { type: 'record-toggle' }
   | { type: 'stop' }
   | { type: 'play-mix' }
@@ -40,7 +40,7 @@ export type SproutsAction =
 
 export type MidiStatus = 'unsupported' | 'idle' | 'scanning' | 'connected' | 'denied';
 
-type Listener = (a: SproutsAction) => void;
+type Listener = (a: BakeryAction) => void;
 
 const PAD_NOTE_BASE = 36;        // C2 — Bank A 36–43, Bank B 44–51 (factory)
 const PAD_COUNT = 16;            // window covers both banks
@@ -92,7 +92,7 @@ class SmkController {
     this.statusListeners.forEach((fn) => fn(s, name));
   }
 
-  private emit(a: SproutsAction): void {
+  private emit(a: BakeryAction): void {
     this.listeners.forEach((fn) => fn(a));
   }
 

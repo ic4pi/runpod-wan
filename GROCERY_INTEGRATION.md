@@ -3,7 +3,7 @@
 ## Current product boundaries
 
 - **Grocery:** real-audio beat catalog, non-exclusive leases, and licensed beat downloads.
-- **Sprouts:** vocal recording and vocal exports.
+- **Bakery:** vocal recording and vocal exports.
 - **Pastry:** mixing and mastering.
 - **Beet:** existing synth/drum code retained; its addition is delayed, not deleted.
 
@@ -17,7 +17,7 @@ Grocery
   sells a non-exclusive lease through Stripe
   downloads the original beat + license ZIP
         ↓
-Sprouts
+Bakery
   imports the licensed beat
   records and exports vocals
         ↓
@@ -26,7 +26,7 @@ Pastry
   mixes, masters, and exports the finished song
 ```
 
-The handoff is file-based. Grocery links to `/sprouts/`; it does not silently create a Sprouts session or claim an automatic import that is not implemented.
+The handoff is file-based. Grocery links to `/bakery/`; it does not silently create a Bakery session or claim an automatic import that is not implemented.
 
 ## Licensed beat ZIP
 
@@ -39,7 +39,7 @@ purchase.json
 READ-ME.txt
 ```
 
-`purchase.json` contains the database-backed license record: license ID, beat ID and title, producer, licensee, grant time, and terms version. `READ-ME.txt` directs the buyer to record vocals in Sprouts.
+`purchase.json` contains the database-backed license record: license ID, beat ID and title, producer, licensee, grant time, and terms version. `READ-ME.txt` directs the buyer to record vocals in Bakery.
 
 The original beat remains producer-owned. The buyer's new lyrics and vocal performance remain the buyer's. The included license wording must be reviewed before commercial use.
 
@@ -78,4 +78,4 @@ Do not describe private delivery as implemented until that endpoint and its auth
 
 ## Module formats
 
-Sprouts, Pastry, and Beet retain their existing audio/session formats and module-specific documentation. This store refactor does not redesign those modules or change their recorder, mixer, MIDI, or session code.
+Bakery, Pastry, and Beet retain their existing audio/session formats and module-specific documentation. This store refactor does not redesign those modules or change their recorder, mixer, MIDI, or session code.

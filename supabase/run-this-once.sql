@@ -12,12 +12,12 @@ create table if not exists public.produce_entitlements (
   unique (user_id, module)
 );
 
--- Bakery is now Pastry: fix any old value, then lock the allowed names.
+-- Final module names: pastry, beet, bakery (was Sprouts), diced. Safe to run more than once.
 alter table public.produce_entitlements drop constraint if exists produce_entitlements_module_check;
-update public.produce_entitlements set module = 'pastry' where module = 'bakery';
+update public.produce_entitlements set module = 'bakery' where module = 'sprouts';
 alter table public.produce_entitlements
   add constraint produce_entitlements_module_check
-  check (module in ('pastry', 'beet', 'sprouts', 'diced'));
+  check (module in ('pastry', 'beet', 'bakery', 'diced'));
 
 alter table public.produce_entitlements enable row level security;
 

@@ -72,7 +72,7 @@ describe('paywall decision', () => {
 
   it('refuses a user who owns nothing', async () => {
     const f = fakeFetch(supa.user(), supa.owned());
-    expect(await decide(req('/sprouts/', 'pa=tok'), deps(f.fn))).toEqual({ allow: false, redirect: '/account/?need=sprouts' });
+    expect(await decide(req('/bakery/', 'pa=tok'), deps(f.fn))).toEqual({ allow: false, redirect: '/account/?need=bakery' });
   });
 
   it('tries one refresh for an expired sign-in, then stops (no loop)', async () => {

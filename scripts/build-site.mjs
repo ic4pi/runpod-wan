@@ -2,7 +2,7 @@
 //   /            Grocery (real-audio beat store)
 //   /pastry/     Pastry   } gated by middleware.ts
 //   /beet/       Beet     }
-//   /sprouts/    Sprouts  }
+//   /bakery/    Bakery  }
 //   /account/    sign in and buy
 import { execFileSync } from 'node:child_process';
 import { cpSync, existsSync, mkdirSync, rmSync } from 'node:fs';
@@ -13,7 +13,7 @@ const apps = [
   { dir: 'grocery', mount: '' },
   { dir: 'pastry', mount: 'pastry' },
   { dir: 'beet', mount: 'beet' },
-  { dir: 'sprouts', mount: 'sprouts' },
+  { dir: 'bakery', mount: 'bakery' },
 ];
 const run = (cmd, args, cwd) => execFileSync(cmd, args, { cwd, stdio: 'inherit' });
 
