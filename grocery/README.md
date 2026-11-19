@@ -8,7 +8,7 @@ Grocery sells non-exclusive leases for real beat recordings. It does not record 
 2. Sign in only to lease or download.
 3. Pay through server-created Stripe Checkout.
 4. After the signature-verified Stripe webhook grants the lease, download a ZIP containing the original audio, `LICENSE.txt`, `purchase.json`, and `READ-ME.txt`.
-5. Record vocals in Sprouts; mix and master in Pastry.
+5. Record vocals in Bakery; mix and master in Pastry.
 
 A catalog slot without an `audioUrl` says **Coming soon**. Its preview, checkout, and download controls stay disabled. There is no synthesized or procedural-audio fallback.
 
@@ -30,6 +30,6 @@ npm test
 npm run build
 ```
 
-The repository root build assembles Grocery, Sprouts, Pastry, the retained Beet module, and Account into one deployment. Beet's addition is delayed; its code is not deleted.
+The repository root build assembles Grocery, Bakery, Pastry, the retained Beet module, and Account into one deployment. Beet's addition is delayed; its code is not deleted.
 
 See `docs/ACCOUNTS_SETUP.md` for Supabase, Stripe, webhook, and license-migration setup. The license text is an implementation draft and needs owner/legal review before real sales.

@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 
 /**
  * SMK-25 knob + transport layer for the whole Grocery ecosystem (works with
- * any MIDI controller that sends the same messages). Matches the Sprouts map:
+ * any MIDI controller that sends the same messages). Matches the Bakery map:
  *
  *   Bank A knobs  CC 20–27 → knob index 0–7, value 0..1
  *   Bank B knobs  CC 28–35 → knob index 8–15, value 0..1

@@ -205,7 +205,7 @@ export default function App() {
         <div className="mx-auto flex min-h-16 w-full max-w-[1500px] items-center justify-between gap-3 px-5 sm:px-8">
           <button type="button" onClick={() => { stopPreview(); setStage('catalog'); }} className="cursor-pointer text-left text-xl font-semibold tracking-tight">GROCERY<span className="text-[#00948c]">.</span></button>
           <nav aria-label="Products" className="flex items-center gap-1 sm:gap-3">
-            <a href="/sprouts/" className="hidden min-h-11 items-center px-2 text-sm text-[#a7b0ad] hover:text-[#f4f4f4] sm:flex">Sprouts</a>
+            <a href="/bakery/" className="hidden min-h-11 items-center px-2 text-sm text-[#a7b0ad] hover:text-[#f4f4f4] sm:flex">Bakery</a>
             <a href="/pastry/" className="hidden min-h-11 items-center px-2 text-sm text-[#a7b0ad] hover:text-[#f4f4f4] sm:flex">Pastry</a>
             {account.available && !account.loading && (account.email
               ? <button type="button" onClick={signOut} className="min-h-11 cursor-pointer px-3 text-sm text-[#a7b0ad] hover:text-[#f4f4f4]">Sign out</button>
@@ -250,7 +250,7 @@ export default function App() {
               <button type="button" onClick={() => void purchaseAction()} disabled={!beatHasAudio(selected) || !!busy} className="flex min-h-16 cursor-pointer items-center justify-center gap-3 rounded-2xl bg-[#ffe600] px-5 font-semibold text-[#080b0b] transition hover:bg-[#f4f4f4] disabled:cursor-not-allowed disabled:opacity-40">
                 {busy === 'checkout' || busy === 'download' ? <Loader2 className="h-5 w-5 animate-spin" /> : license ? <Download className="h-5 w-5" /> : null}{actionLabel()}
               </button>
-              <a href="/sprouts/" className="flex min-h-16 items-center justify-center gap-3 rounded-2xl border border-[#52615e] px-5 font-semibold text-[#f4f4f4] transition hover:border-[#00948c]">Record vocals in Sprouts <ArrowRight className="h-5 w-5" /></a>
+              <a href="/bakery/" className="flex min-h-16 items-center justify-center gap-3 rounded-2xl border border-[#52615e] px-5 font-semibold text-[#f4f4f4] transition hover:border-[#00948c]">Record vocals in Bakery <ArrowRight className="h-5 w-5" /></a>
             </section>
           </div>
 

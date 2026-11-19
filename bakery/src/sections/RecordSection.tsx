@@ -605,7 +605,7 @@ export function RecordSection() {
   const buildPastryBundle = useCallback(async () => {
     if (layersRef.current.length === 0 || !beatRef.current) return null;
     const name = `${template.name} · ${new Date().toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}`;
-    const filename = `sprouts-${template.id}-session.zip`;
+    const filename = `bakery-${template.id}-session.zip`;
     const { blob } = await exportGroceryBundle({
       sessionName: name,
       bpm,
@@ -629,7 +629,7 @@ export function RecordSection() {
       downloadBlob(bundle.blob, bundle.filename);
       toast.success('Session ZIP downloaded — open it in Pastry.');
     } catch (err) {
-      console.error('[sprouts] session export failed', err);
+      console.error('[bakery] session export failed', err);
       toast.error('Session export failed — try fewer or shorter layers.');
     } finally {
       setExportingGrocery(false);
@@ -642,9 +642,9 @@ export function RecordSection() {
       const bundle = await buildPastryBundle();
       if (!bundle) return;
       const handoffId = await stagePastryHandoff(bundle.blob, bundle.filename);
-      window.location.assign(`/pastry/?from=sprouts&session=${encodeURIComponent(handoffId)}`);
+      window.location.assign(`/pastry/?from=bakery&session=${encodeURIComponent(handoffId)}`);
     } catch (err) {
-      console.error('[sprouts] direct Pastry handoff failed', err);
+      console.error('[bakery] direct Pastry handoff failed', err);
       toast.error('Direct handoff is unavailable here. Use Session ZIP instead.');
       setExportingGrocery(false);
     }
@@ -1057,7 +1057,7 @@ export function RecordSection() {
         <div className="flex flex-col items-center gap-3 border border-dashed border-border px-6 py-10 text-center">
           <Plus className="h-5 w-5 text-muted-foreground" />
           <p className="max-w-xs text-sm leading-relaxed text-muted-foreground">
-            Choose a beat or your own stems above, hit record, and lay your lead. Sprouts makes the doubles and stacks your ad-libs and backups; Pastry handles the final mix and master.
+            Choose a beat or your own stems above, hit record, and lay your lead. Bakery makes the doubles and stacks your ad-libs and backups; Pastry handles the final mix and master.
           </p>
         </div>
       )}

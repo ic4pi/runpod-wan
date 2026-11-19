@@ -1,12 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { buildGrocerySession } from '../sprouts/src/lib/audio/grocery';
+import { buildGrocerySession } from '../bakery/src/lib/audio/grocery';
 
 const layers = [
   { role: 'lead', duration: 2.5, pan: null, gain: null },
   { role: 'double', duration: 2.6, pan: -0.75, gain: 0.7 },
 ];
 
-describe('Sprouts to Pastry session metadata', () => {
+describe('Bakery to Pastry session metadata', () => {
   it('keeps every uploaded backing stem independent and aligned at zero', () => {
     const session = buildGrocerySession({
       sessionName: 'Two-stem test',

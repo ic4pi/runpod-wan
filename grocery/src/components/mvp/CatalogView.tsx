@@ -21,7 +21,7 @@ export function CatalogView({ beats, previewId, loadingId, onPreview, onOpen }: 
           <h1 className="mt-5 text-5xl font-semibold leading-[0.95] tracking-[-0.055em] text-[#f4f4f4] sm:text-7xl">
             Browse beats.
           </h1>
-          <p className="mt-6 max-w-2xl text-lg leading-relaxed text-[#a7b0ad]">Preview real beat recordings. Lease once. Download the beat and a plain-English license. Your vocals happen in Sprouts.</p>
+          <p className="mt-6 max-w-2xl text-lg leading-relaxed text-[#a7b0ad]">Preview real beat recordings. Lease once. Download the beat and a plain-English license. Your vocals happen in Bakery.</p>
         </div>
 
         <div className="mt-8 flex flex-wrap items-center justify-between gap-3 border-b border-[#52615e] pb-4">
@@ -61,14 +61,14 @@ export function CatalogView({ beats, previewId, loadingId, onPreview, onOpen }: 
 
       <aside className="h-fit border border-[#52615e] bg-[#101515] p-6 lg:sticky lg:top-8">
         <p className="font-mono text-xs uppercase tracking-[0.2em] text-[#00948c]">One clear path</p>
-        <h2 className="mt-4 text-3xl font-semibold leading-tight tracking-tight">Beat here. Vocals in Sprouts.</h2>
+        <h2 className="mt-4 text-3xl font-semibold leading-tight tracking-tight">Beat here. Vocals in Bakery.</h2>
         <ol className="mt-6 space-y-5 text-sm leading-relaxed">
           <li><strong className="mr-2 text-[#ffe600]">01</strong> Preview the actual beat recording.</li>
           <li><strong className="mr-2 text-[#ffe600]">02</strong> Sign in only when you lease or download.</li>
           <li><strong className="mr-2 text-[#ffe600]">03</strong> Get the original audio and your license.</li>
-          <li><strong className="mr-2 text-[#ffe600]">04</strong> Record your vocals in Sprouts.</li>
+          <li><strong className="mr-2 text-[#ffe600]">04</strong> Record your vocals in Bakery.</li>
         </ol>
-        <a href="/sprouts/" className="mt-8 flex min-h-12 items-center justify-center gap-2 rounded-2xl bg-[#f4f4f4] px-5 font-semibold text-[#080b0b] transition hover:bg-[#ffe600]">Open Sprouts <ArrowRight className="h-4 w-4" /></a>
+        <a href="/bakery/" className="mt-8 flex min-h-12 items-center justify-center gap-2 rounded-2xl bg-[#f4f4f4] px-5 font-semibold text-[#080b0b] transition hover:bg-[#ffe600]">Open Bakery <ArrowRight className="h-4 w-4" /></a>
         <p className="mt-4 text-xs leading-relaxed text-[#a7b0ad]">Empty slots say “Coming soon.” Nothing is generated or sold before a real beat file is added.</p>
       </aside>
     </main>
