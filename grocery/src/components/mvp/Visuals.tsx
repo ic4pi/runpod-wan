@@ -81,27 +81,61 @@ export function VaporBackdrop() {
       ctx.fillRect(s.x * w, y, s.s, s.s);
     }
 
-    // Sun with vapor slats
-    const r = Math.min(w, h) * (0.2 + bass * 0.025);
-    const cx = w * 0.5;
-    const cy = horizon - r * 0.15;
-    const halo = ctx.createRadialGradient(cx, cy, r * 0.6, cx, cy, r * 2.6);
-    halo.addColorStop(0, `rgba(255,43,214,${0.22 + bass * 0.25})`);
-    halo.addColorStop(1, 'rgba(255,43,214,0)');
-    ctx.fillStyle = halo; ctx.fillRect(0, 0, w, horizon);
-    ctx.save();
-    ctx.beginPath(); ctx.rect(0, 0, w, horizon); ctx.clip();
-    ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.clip();
-    const sun = ctx.createLinearGradient(0, cy - r, 0, cy + r);
-    sun.addColorStop(0, '#ffd36e'); sun.addColorStop(0.45, '#ff4fa3'); sun.addColorStop(1, '#7a1cff');
-    ctx.fillStyle = sun; ctx.fillRect(cx - r, cy - r, r * 2, r * 2);
-    ctx.fillStyle = '#0d0418';
-    for (let i = 0; i < 9; i += 1) {
-      const k = i / 9;
-      const y = cy - r * 0.1 + k * r * 1.1 + ((t * 8) % (r * 0.12));
-      ctx.fillRect(cx - r, y, r * 2, 1.5 + k * r * 0.05);
+    // Aurora haze: drifting ribbons instead of a sun
+    for (let k = 0; k < 3; k += 1) {
+      const hue = [184, 265, 312][k];
+      ctx.beginPath();
+      for (let x = 0; x <= w; x += 12) {
+        const y = horizon * (0.42 + k * 0.1) + Math.sin(x * 0.004 + t * (0.25 + k * 0.08) + k * 2) * horizon * 0.07 + Math.sin(x * 0.011 - t * 0.4) * horizon * 0.02;
+        if (x === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+      }
+      ctx.lineWidth = horizon * 0.09;
+      ctx.strokeStyle = `hsla(${hue},100%,60%,${0.05 + bass * 0.05})`;
+      ctx.shadowColor = `hsl(${hue},100%,60%)`; ctx.shadowBlur = 50;
+      ctx.stroke();
     }
-    ctx.restore();
+    ctx.shadowBlur = 0;
+
+    // Wireframe orb of points, rotating and breathing with the bass
+    const R = Math.min(w, h) * (0.2 + bass * 0.02);
+    const cx = w * 0.5;
+    const cy = horizon - R * 0.55;
+    const halo = ctx.createRadialGradient(cx, cy, R * 0.2, cx, cy, R * 2.2);
+    halo.addColorStop(0, `rgba(139,92,255,${0.16 + bass * 0.2})`);
+    halo.addColorStop(1, 'rgba(139,92,255,0)');
+    ctx.fillStyle = halo; ctx.fillRect(0, 0, w, horizon);
+    const rotY = t * 0.18; const tilt = 0.42;
+    const cT = Math.cos(tilt); const sT = Math.sin(tilt);
+    const cY = Math.cos(rotY); const sY = Math.sin(rotY);
+    const LAT = 18; const LON = 40;
+    for (let i = 1; i < LAT; i += 1) {
+      const phi = (i / LAT) * Math.PI;
+      for (let j = 0; j < LON; j += 1) {
+        const th = (j / LON) * Math.PI * 2;
+        const ripple = 1 + Math.sin(phi * 6 + t * 2) * 0.015 * (1 + bass * 4);
+        let x = Math.sin(phi) * Math.cos(th) * ripple;
+        let y = Math.cos(phi) * ripple;
+        let z = Math.sin(phi) * Math.sin(th) * ripple;
+        const x1 = x * cY - z * sY; const z1 = x * sY + z * cY; x = x1; z = z1;
+        const y1 = y * cT - z * sT; const z2 = y * sT + z * cT; y = y1; z = z2;
+        const depth = (z + 1) / 2;
+        const px = cx + x * R; const py = cy + y * R;
+        if (py > horizon) continue;
+        const hue = 184 + (j / LON) * 130;
+        ctx.fillStyle = `hsla(${hue},100%,${60 + depth * 25}%,${0.25 + depth * 0.75})`;
+        ctx.shadowColor = `hsl(${hue},100%,60%)`; ctx.shadowBlur = depth > 0.6 ? 6 : 0;
+        const size = 1 + depth * 2.4;
+        ctx.fillRect(px - size / 2, py - size / 2, size, size);
+      }
+    }
+    ctx.shadowBlur = 0;
+    // Equator ring
+    ctx.strokeStyle = `rgba(0,240,255,${0.35 + bass * 0.4})`;
+    ctx.lineWidth = 1.4; ctx.shadowColor = '#00f0ff'; ctx.shadowBlur = 14;
+    ctx.beginPath(); ctx.ellipse(cx, cy, R * 1.35, R * 1.35 * 0.22, -0.12, 0, Math.PI * 2); ctx.stroke();
+    ctx.strokeStyle = `rgba(255,43,214,${0.2 + bass * 0.3})`; ctx.shadowColor = '#ff2bd6';
+    ctx.beginPath(); ctx.ellipse(cx, cy, R * 1.6, R * 1.6 * 0.18, 0.1 + t * 0.05, 0, Math.PI * 2); ctx.stroke();
+    ctx.shadowBlur = 0;
 
     // Floor
     const floor = ctx.createLinearGradient(0, horizon, 0, h);
@@ -140,7 +174,7 @@ export function VaporBackdrop() {
     <div aria-hidden="true" className="pointer-events-none fixed inset-0 -z-10">
       <canvas ref={ref} className="h-full w-full" />
       <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,transparent_30%,rgba(0,0,0,0.78)_100%)]" />
-      <div className="absolute inset-0 bg-black/55" />
+      <div className="absolute inset-0 bg-black/40" />
       <div className="vx-scanlines absolute inset-0" />
       <div className="vx-noise absolute inset-0" />
     </div>
