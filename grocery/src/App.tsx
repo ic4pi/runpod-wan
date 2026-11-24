@@ -8,6 +8,8 @@ import { BeatArt } from '@/components/mvp/BeatArt';
 import { beatHasAudio, CATALOG_BEATS, getCatalogBeat, type CatalogBeat } from '@/lib/catalog';
 import { audioContext, loadCatalogAudio } from '@/lib/mvp/audio';
 import { downloadBeatRelease, type BeatLicense } from '@/lib/mvp/release';
+import { playbackAnalyser, setAnalyserActive } from '@/lib/mvp/analyser';
+import { RadialScope, SpectrumBars, VaporBackdrop } from '@/components/mvp/Visuals';
 
 type Stage = 'catalog' | 'beat';
 interface AccountState { loading: boolean; available: boolean; payments: boolean; email: string | null }
@@ -31,6 +33,7 @@ export default function App() {
 
   const stopPreview = useCallback(() => {
     playbackToken.current += 1;
+    setAnalyserActive(false);
     if (playback.current) {
       playback.current.onended = null;
       try { playback.current.stop(); } catch { /* already stopped */ }
@@ -124,11 +127,12 @@ export default function App() {
       await ctx.resume();
       const source = ctx.createBufferSource();
       source.buffer = buffer;
-      source.connect(ctx.destination);
+      source.connect(playbackAnalyser());
       const token = playbackToken.current;
-      source.onended = () => { if (playbackToken.current === token) { playback.current = null; setPreviewId(null); } };
+      source.onended = () => { if (playbackToken.current === token) { playback.current = null; setAnalyserActive(false); setPreviewId(null); } };
       source.start(0, 0, Math.min(30, buffer.duration));
       playback.current = source;
+      setAnalyserActive(true);
       setPreviewId(beat.id);
     } catch {
       toast.error('That beat file could not be played. Check the uploaded audio and try again.');
@@ -199,17 +203,26 @@ export default function App() {
     return `Lease beat · ${money(selected.priceCents)}`;
   };
 
+  const live = !!selected && previewId === selected.id;
+
   return (
-    <div className="min-h-dvh bg-[#080b0b] text-[#f4f4f4]">
-      <header className="border-b border-[#263331]">
+    <div className="relative min-h-dvh text-[#eef0ff]">
+      <VaporBackdrop />
+      <header className="sticky top-0 z-40 border-b border-white/[0.06] bg-[#030306]/55 backdrop-blur-xl">
         <div className="mx-auto flex min-h-16 w-full max-w-[1500px] items-center justify-between gap-3 px-5 sm:px-8">
-          <button type="button" onClick={() => { stopPreview(); setStage('catalog'); }} className="cursor-pointer text-left text-xl font-semibold tracking-tight">GROCERY<span className="text-[#00948c]">.</span></button>
-          <nav aria-label="Products" className="flex items-center gap-1 sm:gap-3">
-            <a href="/bakery/" className="hidden min-h-11 items-center px-2 text-sm text-[#a7b0ad] hover:text-[#f4f4f4] sm:flex">Bakery</a>
-            <a href="/pastry/" className="hidden min-h-11 items-center px-2 text-sm text-[#a7b0ad] hover:text-[#f4f4f4] sm:flex">Pastry</a>
+          <button type="button" onClick={() => { stopPreview(); setStage('catalog'); }} className="group flex cursor-pointer items-center gap-3 text-left">
+            <span className="relative grid h-8 w-8 place-items-center rounded-full border border-[var(--vx-cyan)]/50 shadow-[0_0_18px_-4px_var(--vx-cyan)]">
+              <span className="h-2 w-2 rounded-full bg-[var(--vx-magenta)] shadow-[0_0_10px_var(--vx-magenta)] transition-transform group-hover:scale-150" />
+            </span>
+            <span className="font-display text-base font-bold tracking-[0.28em]">GROCERY</span>
+          </button>
+          <SpectrumBars bars={20} mirror={false} energy={0.85} className="hidden h-7 w-36 opacity-80 md:block" />
+          <nav aria-label="Products" className="flex items-center gap-1 sm:gap-2">
+            <a href="/bakery/" className="hidden min-h-11 items-center rounded-full px-4 font-mono text-[11px] uppercase tracking-[0.2em] text-[var(--vx-dim)] transition hover:bg-white/5 hover:text-white sm:flex">Bakery</a>
+            <a href="/pastry/" className="hidden min-h-11 items-center rounded-full px-4 font-mono text-[11px] uppercase tracking-[0.2em] text-[var(--vx-dim)] transition hover:bg-white/5 hover:text-white sm:flex">Pastry</a>
             {account.available && !account.loading && (account.email
-              ? <button type="button" onClick={signOut} className="min-h-11 cursor-pointer px-3 text-sm text-[#a7b0ad] hover:text-[#f4f4f4]">Sign out</button>
-              : <button type="button" onClick={() => { setAuthReason('Sign in to lease or download your beats.'); setAuthOpen(true); }} className="min-h-11 cursor-pointer px-3 text-sm text-[#a7b0ad] hover:text-[#f4f4f4]">Sign in</button>)}
+              ? <button type="button" onClick={signOut} className="vx-btn vx-btn-ghost min-h-10 px-5 text-xs">Sign out</button>
+              : <button type="button" onClick={() => { setAuthReason('Sign in to lease or download your beats.'); setAuthOpen(true); }} className="vx-btn vx-btn-ghost min-h-10 px-5 text-xs">Sign in</button>)}
           </nav>
         </div>
       </header>
@@ -225,45 +238,57 @@ export default function App() {
       )}
 
       {stage === 'beat' && selected && (
-        <main className="mx-auto grid w-full max-w-[1300px] gap-10 px-5 pb-20 pt-6 sm:px-8 lg:grid-cols-[minmax(0,1fr)_350px] lg:pt-12">
-          <div>
-            <button type="button" onClick={() => { stopPreview(); setStage('catalog'); }} className="flex min-h-11 cursor-pointer items-center gap-2 text-sm text-[#a7b0ad] hover:text-[#f4f4f4]"><ArrowLeft className="h-4 w-4" /> Beat catalog</button>
-            <div className="mt-6 grid grid-cols-[96px_minmax(0,1fr)] items-center gap-5 sm:grid-cols-[180px_minmax(0,1fr)] sm:gap-8">
-              <BeatArt beat={selected} large />
+        <main key={selected.id} className="mx-auto grid w-full max-w-[1300px] gap-10 px-5 pb-24 pt-6 sm:px-8 lg:grid-cols-[minmax(0,1fr)_350px] lg:pt-10">
+          <div className="vx-rise">
+            <button type="button" onClick={() => { stopPreview(); setStage('catalog'); }} className="relative z-10 flex min-h-11 cursor-pointer items-center gap-2 font-mono text-[11px] uppercase tracking-[0.2em] text-[var(--vx-dim)] transition hover:text-[var(--vx-cyan)]"><ArrowLeft className="h-4 w-4" /> Beat catalog</button>
+
+            <div className="mt-10 grid items-center gap-12 sm:grid-cols-[minmax(0,280px)_minmax(0,1fr)] sm:gap-16">
+              <div className="relative mx-auto aspect-square w-full max-w-[280px]">
+                <RadialScope active={live} className="pointer-events-none absolute inset-[-20%] h-[140%] w-[140%]" />
+                <div className="absolute inset-[14%]"><BeatArt beat={selected} large playing={live} /></div>
+              </div>
               <div className="min-w-0">
-                <p className="font-mono text-xs uppercase tracking-[0.2em] text-[#00948c]">{selected.genre} / {selected.producer}</p>
-                <h1 className="mt-3 break-words text-4xl font-semibold leading-none tracking-[-0.045em] sm:text-6xl">{selected.title}</h1>
-                <p className="mt-4 text-sm text-[#a7b0ad]">{selected.bpm} BPM · {keyName(selected.key)} · {money(selected.priceCents)} non-exclusive</p>
+                <p className="vx-label">{selected.genre} / {selected.producer}</p>
+                <h1 className="font-display mt-4 break-words text-4xl font-bold uppercase leading-[0.95] sm:text-6xl"><span className="vx-chrome vx-glitch" data-text={selected.title}>{selected.title}</span></h1>
+                <div className="mt-6 flex flex-wrap gap-2 font-mono text-[11px] uppercase tracking-[0.18em]">
+                  {[`${selected.bpm} BPM`, keyName(selected.key), `${money(selected.priceCents)} non-exclusive`].map((chip) => (
+                    <span key={chip} className="rounded-full border border-white/10 bg-white/[0.03] px-3 py-1.5 text-white/80 backdrop-blur">{chip}</span>
+                  ))}
+                </div>
               </div>
             </div>
 
-            <section className="mt-10 border-y border-[#52615e] py-6">
-              <p className="font-mono text-xs uppercase tracking-wider text-[#a7b0ad]">Real recording preview</p>
-              <button type="button" onClick={() => void preview(selected)} disabled={!beatHasAudio(selected) || (!!busy && busy !== `preview:${selected.id}`)} className="mt-4 flex min-h-14 cursor-pointer items-center gap-3 rounded-2xl bg-[#f4f4f4] px-7 font-semibold text-[#080b0b] transition hover:bg-[#ffe600] disabled:cursor-not-allowed disabled:opacity-40">
-                {busy === `preview:${selected.id}` ? <Loader2 className="h-5 w-5 animate-spin" /> : previewId === selected.id ? <Pause className="h-5 w-5" /> : <Play className="h-5 w-5" />}
-                {previewId === selected.id ? 'Stop preview' : 'Play up to 30 seconds'}
+            <section className="vx-glass vx-edge mt-14 p-6 sm:p-7">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <p className="vx-label">Real recording preview</p>
+                <span className="font-mono text-[10px] uppercase tracking-[0.2em] text-[var(--vx-dim)]">{live ? '● Live · 30 s window' : 'Idle'}</span>
+              </div>
+              <SpectrumBars bars={72} className="mt-5 h-32 w-full" />
+              <button type="button" onClick={() => void preview(selected)} disabled={!beatHasAudio(selected) || (!!busy && busy !== `preview:${selected.id}`)} className={`vx-btn mt-5 min-h-14 px-8 text-sm ${live ? 'vx-btn-ghost' : 'vx-btn-primary'}`}>
+                {busy === `preview:${selected.id}` ? <Loader2 className="h-5 w-5 animate-spin" /> : live ? <Pause className="h-5 w-5" /> : <Play className="h-5 w-5" />}
+                {live ? 'Stop preview' : 'Play up to 30 seconds'}
               </button>
-              {!beatHasAudio(selected) && <p className="mt-4 text-sm text-[#a7b0ad]">The real audio file has not been added to this slot yet.</p>}
+              {!beatHasAudio(selected) && <p className="mt-4 text-sm text-[var(--vx-dim)]">The real audio file has not been added to this slot yet.</p>}
             </section>
 
-            <section className="mt-8 grid gap-3 sm:grid-cols-2">
-              <button type="button" onClick={() => void purchaseAction()} disabled={!beatHasAudio(selected) || !!busy} className="flex min-h-16 cursor-pointer items-center justify-center gap-3 rounded-2xl bg-[#ffe600] px-5 font-semibold text-[#080b0b] transition hover:bg-[#f4f4f4] disabled:cursor-not-allowed disabled:opacity-40">
+            <section className="mt-6 grid gap-3 sm:grid-cols-2">
+              <button type="button" onClick={() => void purchaseAction()} disabled={!beatHasAudio(selected) || !!busy} className="vx-btn vx-btn-primary min-h-16 px-5 text-sm">
                 {busy === 'checkout' || busy === 'download' ? <Loader2 className="h-5 w-5 animate-spin" /> : license ? <Download className="h-5 w-5" /> : null}{actionLabel()}
               </button>
-              <a href="/bakery/" className="flex min-h-16 items-center justify-center gap-3 rounded-2xl border border-[#52615e] px-5 font-semibold text-[#f4f4f4] transition hover:border-[#00948c]">Record vocals in Bakery <ArrowRight className="h-5 w-5" /></a>
+              <a href="/bakery/" className="vx-btn vx-btn-ghost min-h-16 px-5 text-sm">Record vocals in Bakery <ArrowRight className="h-5 w-5" /></a>
             </section>
           </div>
 
-          <aside className="h-fit border border-[#52615e] bg-[#101515] p-6 lg:sticky lg:top-8">
-            <p className="font-mono text-xs uppercase tracking-[0.2em] text-[#00948c]">What the lease includes</p>
-            <ul className="mt-5 space-y-4 text-sm leading-relaxed text-[#a7b0ad]">
-              <li className="flex gap-3"><Check className="mt-0.5 h-4 w-4 shrink-0 text-[#ffe600]" /> The original beat audio file.</li>
-              <li className="flex gap-3"><Check className="mt-0.5 h-4 w-4 shrink-0 text-[#ffe600]" /> One new commercial song.</li>
-              <li className="flex gap-3"><Check className="mt-0.5 h-4 w-4 shrink-0 text-[#ffe600]" /> Streaming, downloads, performances, and song-promotion videos.</li>
-              <li className="flex gap-3"><Check className="mt-0.5 h-4 w-4 shrink-0 text-[#ffe600]" /> A plain-English license with your purchase record.</li>
+          <aside className="vx-glass vx-edge vx-rise h-fit p-7 [animation-delay:.12s] lg:sticky lg:top-24">
+            <p className="vx-label">What the lease includes</p>
+            <ul className="mt-6 space-y-4 text-sm leading-relaxed text-white/80">
+              {['The original beat audio file.', 'One new commercial song.', 'Streaming, downloads, performances, and song-promotion videos.', 'A plain-English license with your purchase record.'].map((item) => (
+                <li key={item} className="flex gap-3"><Check className="mt-0.5 h-4 w-4 shrink-0 text-[var(--vx-cyan)] drop-shadow-[0_0_6px_var(--vx-cyan)]" /> {item}</li>
+              ))}
             </ul>
-            <div className="mt-6 border-t border-[#52615e] pt-6 text-sm leading-relaxed text-[#a7b0ad]">
-              {license ? <p className="text-[#f4f4f4]">License verified.<br /><span className="break-all font-mono text-xs text-[#a7b0ad]">{license.id}</span></p> : <p>The producer keeps the beat. You keep your new lyrics and vocal. Beat credit is required; exclusive rights are not included.</p>}
+            <div className="vx-rule my-6" />
+            <div className="text-sm leading-relaxed text-[var(--vx-dim)]">
+              {license ? <p className="text-white">License verified.<br /><span className="break-all font-mono text-xs text-[var(--vx-dim)]">{license.id}</span></p> : <p>The producer keeps the beat. You keep your new lyrics and vocal. Beat credit is required; exclusive rights are not included.</p>}
             </div>
           </aside>
         </main>

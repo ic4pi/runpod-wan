@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500&family=Space+Grotesk:wght@300;400;500;600&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Syncopate:wght@400;700&family=Sora:wght@200;300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -6,75 +6,211 @@
 
 @layer base {
   :root {
-    /* Ink-black studio, warm off-white type, restrained teal and yellow signals. */
-    --background: 180 14% 4%;
-    --foreground: 60 9% 96%;
-    --card: 165 14% 7%;
-    --card-foreground: 60 9% 96%;
-    --popover: 165 14% 7%;
-    --popover-foreground: 60 9% 96%;
-    --primary: 60 100% 50%;
-    --primary-foreground: 180 14% 4%;
-    --secondary: 165 14% 12%;
-    --secondary-foreground: 60 9% 96%;
-    --muted: 165 14% 12%;
-    --muted-foreground: 150 6% 67%;
-    --accent: 174 100% 29%;
-    --accent-foreground: 60 9% 96%;
-    --destructive: 0 72% 55%;
-    --destructive-foreground: 60 9% 96%;
-    --border: 160 16% 20%;
-    --input: 160 16% 20%;
-    --ring: 60 100% 50%;
-    --radius: 0rem;
+    /* Void black, holographic cyan / violet / magenta signals. */
+    --background: 240 20% 2%;
+    --foreground: 230 30% 96%;
+    --card: 250 25% 6%;
+    --card-foreground: 230 30% 96%;
+    --popover: 250 25% 6%;
+    --popover-foreground: 230 30% 96%;
+    --primary: 184 100% 50%;
+    --primary-foreground: 240 20% 2%;
+    --secondary: 250 20% 10%;
+    --secondary-foreground: 230 30% 96%;
+    --muted: 250 20% 10%;
+    --muted-foreground: 235 12% 66%;
+    --accent: 312 100% 58%;
+    --accent-foreground: 230 30% 96%;
+    --destructive: 350 90% 60%;
+    --destructive-foreground: 230 30% 96%;
+    --border: 250 20% 16%;
+    --input: 250 20% 16%;
+    --ring: 184 100% 50%;
+    --radius: 0.9rem;
+
+    --vx-cyan: #00f0ff;
+    --vx-violet: #8b5cff;
+    --vx-magenta: #ff2bd6;
+    --vx-ink: #030306;
+    --vx-dim: #9a9cb8;
   }
 }
 
 @layer base {
-  * {
-    @apply border-border;
-  }
-  html {
-    background: hsl(var(--background));
-  }
+  * { @apply border-border; }
+  html { background: #030306; }
   body {
-    @apply bg-background text-foreground;
-    font-family: 'Space Grotesk', ui-sans-serif, system-ui, sans-serif;
+    @apply text-foreground;
+    background: transparent;
+    font-family: 'Sora', ui-sans-serif, system-ui, sans-serif;
+    font-weight: 300;
     font-size: 16px;
     line-height: 1.6;
     -webkit-font-smoothing: antialiased;
     text-rendering: optimizeLegibility;
   }
-  .font-display {
-    font-family: 'Space Grotesk', ui-sans-serif, system-ui, sans-serif;
+  .font-display { font-family: 'Syncopate', 'Sora', sans-serif; letter-spacing: 0.02em; }
+  .font-mono { font-family: 'JetBrains Mono', ui-monospace, 'SF Mono', monospace; }
+  ::selection { background: var(--vx-magenta); color: #fff; }
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: #030306; }
+  ::-webkit-scrollbar-thumb { background: linear-gradient(var(--vx-cyan), var(--vx-magenta)); border-radius: 6px; }
+  :focus-visible { outline: 2px solid var(--vx-cyan); outline-offset: 3px; }
+}
+
+@layer components {
+  /* Atmosphere */
+  .vx-scanlines {
+    background: repeating-linear-gradient(to bottom, rgba(255,255,255,0.025) 0 1px, transparent 1px 3px);
+    mix-blend-mode: overlay;
   }
-  .font-serif-accent {
-    font-family: 'Instrument Serif', Georgia, serif;
+  .vx-noise {
+    opacity: 0.07;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+    animation: vx-grain 0.9s steps(4) infinite;
   }
-  .font-mono {
-    font-family: 'JetBrains Mono', ui-monospace, 'SF Mono', monospace;
+
+  /* Glass panel with a slow holographic edge */
+  .vx-glass {
+    position: relative;
+    background: linear-gradient(160deg, rgba(20,16,38,0.62), rgba(6,6,14,0.72));
+    backdrop-filter: blur(18px) saturate(140%);
+    -webkit-backdrop-filter: blur(18px) saturate(140%);
+    border: 1px solid rgba(160,150,255,0.12);
+    border-radius: 1.25rem;
+    box-shadow: 0 30px 80px -30px rgba(0,0,0,0.9), inset 0 1px 0 rgba(255,255,255,0.06);
   }
-  ::selection {
-    background: hsl(var(--primary));
-    color: hsl(var(--primary-foreground));
+  .vx-edge::before {
+    content: '';
+    position: absolute; inset: -1px; border-radius: inherit; padding: 1px;
+    background: conic-gradient(from var(--vx-angle), transparent 0 55%, var(--vx-cyan) 70%, var(--vx-magenta) 82%, transparent 92%);
+    -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor; mask-composite: exclude;
+    animation: vx-spin 6s linear infinite;
+    opacity: 0.75; pointer-events: none;
   }
-  ::-webkit-scrollbar {
-    width: 6px;
-    height: 6px;
+
+  /* Beat cards: 3D tilt + pointer spotlight */
+  .vx-card {
+    --rx: 0deg; --ry: 0deg; --mx: 50%; --my: 50%; --glow: 0;
+    transform: perspective(900px) rotateX(var(--rx)) rotateY(var(--ry));
+    transition: transform 0.25s cubic-bezier(.2,.8,.2,1), border-color 0.3s, box-shadow 0.3s;
+    transform-style: preserve-3d;
   }
-  ::-webkit-scrollbar-track {
-    background: hsl(240 8% 5%);
+  .vx-card::after {
+    content: ''; position: absolute; inset: 0; border-radius: inherit; pointer-events: none;
+    background: radial-gradient(420px circle at var(--mx) var(--my), rgba(0,240,255,0.14), rgba(255,43,214,0.06) 40%, transparent 65%);
+    opacity: var(--glow); transition: opacity 0.35s;
   }
-  ::-webkit-scrollbar-thumb {
-    background: hsl(var(--primary) / 0.6);
+  .vx-card:hover { border-color: rgba(0,240,255,0.35); box-shadow: 0 30px 90px -30px rgba(139,92,255,0.55), inset 0 1px 0 rgba(255,255,255,0.08); }
+  .vx-card[data-playing='true'] { border-color: rgba(255,43,214,0.55); box-shadow: 0 0 0 1px rgba(255,43,214,0.25), 0 30px 100px -25px rgba(255,43,214,0.55); }
+
+  /* Buttons */
+  .vx-btn {
+    position: relative; isolation: isolate; overflow: hidden;
+    display: inline-flex; align-items: center; justify-content: center; gap: 0.6rem;
+    border-radius: 999px; font-weight: 500; letter-spacing: 0.02em;
+    transition: transform 0.2s, box-shadow 0.3s, opacity 0.2s, color 0.2s;
+    cursor: pointer;
   }
-  :focus-visible {
-    outline-color: hsl(var(--primary));
+  .vx-btn:active:not(:disabled) { transform: scale(0.97); }
+  .vx-btn:disabled { cursor: not-allowed; opacity: 0.38; }
+  .vx-btn-primary {
+    color: #04020a;
+    background: linear-gradient(100deg, var(--vx-cyan), #7dd3ff 30%, var(--vx-violet) 65%, var(--vx-magenta));
+    background-size: 220% 100%;
+    animation: vx-flow 6s ease infinite;
+    box-shadow: 0 0 24px -4px rgba(0,240,255,0.55), 0 0 60px -20px rgba(255,43,214,0.8);
   }
+  .vx-btn-primary:hover:not(:disabled) { box-shadow: 0 0 36px -2px rgba(0,240,255,0.8), 0 0 90px -16px rgba(255,43,214,0.95); transform: translateY(-1px); }
+  .vx-btn-primary::after {
+    content: ''; position: absolute; inset: 0; z-index: -1;
+    background: linear-gradient(115deg, transparent 35%, rgba(255,255,255,0.65) 50%, transparent 65%);
+    transform: translateX(-120%);
+  }
+  .vx-btn-primary:hover:not(:disabled)::after { animation: vx-sheen 0.9s ease; }
+  .vx-btn-ghost {
+    color: #eef; background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(160,150,255,0.22);
+    backdrop-filter: blur(10px);
+  }
+  .vx-btn-ghost:hover:not(:disabled) { border-color: var(--vx-cyan); box-shadow: 0 0 22px -6px var(--vx-cyan), inset 0 0 18px -10px var(--vx-cyan); color: #fff; }
+
+  .vx-play {
+    position: relative; display: grid; place-items: center; border-radius: 999px; cursor: pointer;
+    color: #fff; background: radial-gradient(circle at 30% 30%, rgba(255,255,255,0.14), rgba(255,255,255,0.02));
+    border: 1px solid rgba(0,240,255,0.35);
+    box-shadow: inset 0 0 18px -6px rgba(0,240,255,0.6);
+    transition: transform 0.2s, box-shadow 0.3s, border-color 0.3s;
+  }
+  .vx-play:hover:not(:disabled) { transform: scale(1.06); box-shadow: 0 0 26px -4px var(--vx-cyan), inset 0 0 18px -6px var(--vx-cyan); }
+  .vx-play:disabled { cursor: not-allowed; opacity: 0.3; }
+  .vx-play[data-on='true'] { border-color: var(--vx-magenta); box-shadow: 0 0 30px -4px var(--vx-magenta), inset 0 0 20px -6px var(--vx-magenta); }
+  .vx-play[data-on='true']::before, .vx-play[data-on='true']::after {
+    content: ''; position: absolute; inset: -1px; border-radius: inherit; border: 1px solid var(--vx-magenta);
+    animation: vx-ripple 1.6s ease-out infinite;
+  }
+  .vx-play[data-on='true']::after { animation-delay: 0.8s; }
+
+  /* Type */
+  .vx-chrome {
+    background: linear-gradient(100deg, #ffffff 0%, #b9f7ff 22%, #ffffff 38%, #d9b8ff 56%, #ff9be9 72%, #ffffff 90%);
+    background-size: 250% 100%;
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+    animation: vx-flow 9s ease-in-out infinite;
+    filter: drop-shadow(0 0 22px rgba(139,92,255,0.35));
+  }
+  .vx-glitch { position: relative; display: inline-block; }
+  .vx-glitch::before, .vx-glitch::after {
+    content: attr(data-text); position: absolute; inset: 0; pointer-events: none;
+    -webkit-background-clip: text; background-clip: text;
+  }
+  .vx-glitch::before { color: var(--vx-cyan); mix-blend-mode: screen; animation: vx-glitch-a 5s infinite steps(1); }
+  .vx-glitch::after { color: var(--vx-magenta); mix-blend-mode: screen; animation: vx-glitch-b 5s infinite steps(1); }
+
+  .vx-label { font-family: 'JetBrains Mono', monospace; font-size: 10.5px; letter-spacing: 0.24em; text-transform: uppercase; color: var(--vx-cyan); }
+  .vx-dot { display: inline-block; width: 6px; height: 6px; border-radius: 99px; background: var(--vx-cyan); box-shadow: 0 0 10px var(--vx-cyan); animation: vx-blink 1.6s ease-in-out infinite; }
+  .vx-rule { height: 1px; background: linear-gradient(90deg, transparent, rgba(0,240,255,0.5), rgba(255,43,214,0.5), transparent); }
+
+  .vx-input {
+    width: 100%; min-height: 3rem; padding: 0 1rem; border-radius: 0.8rem; font-family: 'Sora', sans-serif; text-transform: none; letter-spacing: normal;
+    background: rgba(3,3,8,0.7); border: 1px solid rgba(160,150,255,0.2); color: #fff; outline: none;
+    transition: border-color 0.25s, box-shadow 0.25s;
+  }
+  .vx-input:focus { border-color: var(--vx-cyan); box-shadow: 0 0 0 3px rgba(0,240,255,0.14), 0 0 24px -8px var(--vx-cyan); }
+
+  .vx-rise { animation: vx-rise 0.8s cubic-bezier(.2,.8,.2,1) backwards; }
+
+  /* Spinning holographic disc used as beat art */
+  .vx-disc { animation: vx-spin-plain 14s linear infinite; animation-play-state: paused; }
+  .vx-disc[data-on='true'] { animation-play-state: running; animation-duration: 3.2s; }
+  .group:hover .vx-disc { animation-play-state: running; }
+}
+
+@property --vx-angle { syntax: '<angle>'; initial-value: 0deg; inherits: false; }
+
+@keyframes vx-spin { to { --vx-angle: 360deg; } }
+@keyframes vx-spin-plain { to { transform: rotate(360deg); } }
+@keyframes vx-flow { 0%,100% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } }
+@keyframes vx-sheen { to { transform: translateX(120%); } }
+@keyframes vx-ripple { from { transform: scale(1); opacity: 0.9; } to { transform: scale(1.7); opacity: 0; } }
+@keyframes vx-blink { 0%,100% { opacity: 1; } 50% { opacity: 0.25; } }
+@keyframes vx-grain { 0% { transform: translate(0,0); } 25% { transform: translate(-2%,1%); } 50% { transform: translate(1%,-2%); } 75% { transform: translate(2%,2%); } }
+@keyframes vx-rise { from { opacity: 0; translate: 0 22px; filter: blur(6px); } to { opacity: 1; translate: 0 0; filter: blur(0); } }
+@keyframes vx-glitch-a {
+  0%, 88%, 100% { transform: none; clip-path: inset(0 0 100% 0); }
+  89% { transform: translate(-3px, 1px); clip-path: inset(10% 0 60% 0); }
+  91% { transform: translate(3px, -1px); clip-path: inset(55% 0 20% 0); }
+  93% { transform: translate(-2px, 0); clip-path: inset(30% 0 45% 0); }
+}
+@keyframes vx-glitch-b {
+  0%, 89%, 100% { transform: none; clip-path: inset(0 0 100% 0); }
+  90% { transform: translate(3px, 0); clip-path: inset(65% 0 5% 0); }
+  92% { transform: translate(-3px, 1px); clip-path: inset(5% 0 75% 0); }
+  94% { transform: translate(2px, -1px); clip-path: inset(40% 0 35% 0); }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .animate-ping {
-    animation: none;
-  }
+  *, *::before, *::after { animation-duration: 0.001ms !important; animation-iteration-count: 1 !important; transition-duration: 0.001ms !important; }
+  .vx-card { transform: none !important; }
 }

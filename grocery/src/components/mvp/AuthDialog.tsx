@@ -55,34 +55,34 @@ export function AuthDialog({ open, reason, onClose, onSuccess }: Props) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-[#080b0b]/85 p-0 sm:items-center sm:p-6" onMouseDown={(event) => { if (event.target === event.currentTarget && !busy) onClose(); }}>
-      <section role="dialog" aria-modal="true" aria-labelledby="auth-title" className="w-full max-w-md border border-[#52615e] bg-[#101515] p-6 text-[#f4f4f4] sm:p-8">
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-[#030306]/80 p-0 backdrop-blur-md sm:items-center sm:p-6" onMouseDown={(event) => { if (event.target === event.currentTarget && !busy) onClose(); }}>
+      <section role="dialog" aria-modal="true" aria-labelledby="auth-title" className="vx-glass vx-edge vx-rise w-full max-w-md !rounded-b-none p-6 text-white sm:!rounded-[1.25rem] sm:p-8">
         <div className="flex items-start justify-between gap-4">
           <div>
-            <p className="font-mono text-xs uppercase tracking-widest text-[#00948c]">Your song stays here</p>
-            <h2 id="auth-title" className="mt-2 text-3xl font-semibold tracking-tight">{mode === 'login' ? 'Sign in' : 'Create account'}</h2>
+            <p className="vx-label">Your song stays here</p>
+            <h2 id="auth-title" className="font-display mt-3 text-2xl font-bold uppercase">{mode === 'login' ? 'Sign in' : 'Create account'}</h2>
           </div>
-          <button type="button" aria-label="Close sign-in" onClick={onClose} disabled={busy} className="flex h-11 w-11 cursor-pointer items-center justify-center text-[#a7b0ad] transition hover:text-[#f4f4f4] disabled:opacity-40">
+          <button type="button" aria-label="Close sign-in" onClick={onClose} disabled={busy} className="flex h-11 w-11 cursor-pointer items-center justify-center rounded-full text-[var(--vx-dim)] transition hover:bg-white/5 hover:text-white disabled:opacity-40">
             <X className="h-5 w-5" />
           </button>
         </div>
-        <p className="mt-3 text-sm leading-relaxed text-[#a7b0ad]">{reason}</p>
-        <div className="mt-6 grid grid-cols-2 border border-[#52615e]" role="tablist" aria-label="Account action">
+        <p className="mt-3 text-sm leading-relaxed text-[var(--vx-dim)]">{reason}</p>
+        <div className="mt-6 grid grid-cols-2 gap-1 rounded-full border border-white/10 bg-black/40 p-1" role="tablist" aria-label="Account action">
           {(['login', 'signup'] as const).map((item) => (
-            <button key={item} type="button" role="tab" aria-selected={mode === item} onClick={() => { setMode(item); setMessage(''); }} className={`min-h-11 cursor-pointer px-3 text-sm transition ${mode === item ? 'bg-[#f4f4f4] text-[#080b0b]' : 'text-[#a7b0ad] hover:text-[#f4f4f4]'}`}>
+            <button key={item} type="button" role="tab" aria-selected={mode === item} onClick={() => { setMode(item); setMessage(''); }} className={`min-h-10 cursor-pointer rounded-full px-3 text-sm transition ${mode === item ? 'bg-gradient-to-r from-[var(--vx-cyan)] to-[var(--vx-violet)] font-medium text-[#04020a] shadow-[0_0_20px_-6px_var(--vx-cyan)]' : 'text-[var(--vx-dim)] hover:text-white'}`}>
               {item === 'login' ? 'Sign in' : 'New account'}
             </button>
           ))}
         </div>
         <form onSubmit={submit} className="mt-6 space-y-4">
-          <label className="block text-sm">Email
-            <input autoFocus type="email" autoComplete="email" value={email} onChange={(event) => setEmail(event.target.value)} className="mt-2 min-h-12 w-full border border-[#52615e] bg-[#080b0b] px-3 text-base text-[#f4f4f4] outline-none focus:border-[#ffe600]" />
+          <label className="block font-mono text-[11px] uppercase tracking-[0.2em] text-[var(--vx-dim)]">Email
+            <input autoFocus type="email" autoComplete="email" value={email} onChange={(event) => setEmail(event.target.value)} className="vx-input mt-2 text-base" />
           </label>
-          <label className="block text-sm">Password
-            <input type="password" autoComplete={mode === 'login' ? 'current-password' : 'new-password'} value={password} onChange={(event) => setPassword(event.target.value)} className="mt-2 min-h-12 w-full border border-[#52615e] bg-[#080b0b] px-3 text-base text-[#f4f4f4] outline-none focus:border-[#ffe600]" />
+          <label className="block font-mono text-[11px] uppercase tracking-[0.2em] text-[var(--vx-dim)]">Password
+            <input type="password" autoComplete={mode === 'login' ? 'current-password' : 'new-password'} value={password} onChange={(event) => setPassword(event.target.value)} className="vx-input mt-2 text-base" />
           </label>
-          {message && <p role="status" className="border border-[#52615e] p-3 text-sm leading-relaxed text-[#f4f4f4]">{message}</p>}
-          <button type="submit" disabled={busy} className="min-h-12 w-full cursor-pointer rounded-2xl bg-[#ffe600] px-4 font-semibold text-[#080b0b] transition hover:bg-[#f4f4f4] disabled:cursor-wait disabled:opacity-50">
+          {message && <p role="status" className="rounded-xl border border-[var(--vx-magenta)]/40 bg-[var(--vx-magenta)]/[0.06] p-3 text-sm leading-relaxed text-white">{message}</p>}
+          <button type="submit" disabled={busy} className="vx-btn vx-btn-primary min-h-12 w-full px-4 text-sm">
             {busy ? 'Please wait…' : mode === 'login' ? 'Sign in' : 'Create account'}
           </button>
         </form>
