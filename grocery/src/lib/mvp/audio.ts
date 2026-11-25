@@ -20,3 +20,16 @@ export async function loadCatalogAudio(beat: CatalogBeat): Promise<AudioBuffer> 
   if (!response.ok) throw new Error('The beat file could not be loaded.');
   return decodeAudio(await response.blob());
 }
+
+/** The producer voice tag laid over previews. Optional: previews play untagged until the file exists. */
+export const PREVIEW_TAG_URL = '/beats/preview-tag.mp3';
+export const PREVIEW_TAG_EVERY_SECONDS = 36;
+let tagPromise: Promise<AudioBuffer | null> | null = null;
+export function loadPreviewTag(): Promise<AudioBuffer | null> {
+  if (!tagPromise) {
+    tagPromise = fetch(PREVIEW_TAG_URL)
+      .then((r) => (r.ok ? r.blob().then(decodeAudio) : null))
+      .catch(() => null);
+  }
+  return tagPromise;
+}

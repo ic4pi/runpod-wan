@@ -6,7 +6,7 @@ import { CatalogView } from '@/components/mvp/CatalogView';
 import { AuthDialog } from '@/components/mvp/AuthDialog';
 import { BeatArt } from '@/components/mvp/BeatArt';
 import { beatHasAudio, CATALOG_BEATS, getCatalogBeat, type CatalogBeat } from '@/lib/catalog';
-import { audioContext, loadCatalogAudio } from '@/lib/mvp/audio';
+import { audioContext, loadCatalogAudio, loadPreviewTag, PREVIEW_TAG_EVERY_SECONDS } from '@/lib/mvp/audio';
 import { downloadBeatRelease, type BeatLicense } from '@/lib/mvp/release';
 import { playbackAnalyser, setAnalyserActive } from '@/lib/mvp/analyser';
 import { RadialScope, SpectrumBars, VaporBackdrop } from '@/components/mvp/Visuals';
@@ -29,6 +29,7 @@ export default function App() {
   const [authReason, setAuthReason] = useState('Sign in to lease and download this beat.');
   const playback = useRef<AudioBufferSourceNode | null>(null);
   const playbackToken = useRef(0);
+  const tagSources = useRef<AudioBufferSourceNode[]>([]);
   const audioCache = useRef(new Map<string, AudioBuffer>());
 
   const stopPreview = useCallback(() => {
@@ -40,6 +41,11 @@ export default function App() {
       playback.current.disconnect();
       playback.current = null;
     }
+    for (const voice of tagSources.current) {
+      try { voice.stop(); } catch { /* already stopped */ }
+      voice.disconnect();
+    }
+    tagSources.current = [];
     setPreviewId(null);
   }, []);
 
@@ -122,7 +128,7 @@ export default function App() {
     stopPreview();
     setBusy(`preview:${beat.id}`);
     try {
-      const buffer = await getAudio(beat);
+      const [buffer, tag] = await Promise.all([getAudio(beat), loadPreviewTag()]);
       const ctx = audioContext();
       await ctx.resume();
       const source = ctx.createBufferSource();
@@ -130,7 +136,17 @@ export default function App() {
       source.connect(playbackAnalyser());
       const token = playbackToken.current;
       source.onended = () => { if (playbackToken.current === token) { playback.current = null; setAnalyserActive(false); setPreviewId(null); } };
-      source.start(0, 0, Math.min(30, buffer.duration));
+      const startAt = ctx.currentTime + 0.05;
+      source.start(startAt);
+      if (tag) {
+        for (let t = 0; t < buffer.duration; t += PREVIEW_TAG_EVERY_SECONDS) {
+          const voice = ctx.createBufferSource();
+          voice.buffer = tag;
+          voice.connect(playbackAnalyser());
+          voice.start(startAt + t);
+          tagSources.current.push(voice);
+        }
+      }
       playback.current = source;
       setAnalyserActive(true);
       setPreviewId(beat.id);
@@ -261,12 +277,12 @@ export default function App() {
             <section className="vx-glass vx-edge mt-14 p-6 sm:p-7">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <p className="vx-label">Real recording preview</p>
-                <span className="font-mono text-[10px] uppercase tracking-[0.2em] text-[var(--vx-dim)]">{live ? '● Live · 30 s window' : 'Idle'}</span>
+                <span className="font-mono text-[10px] uppercase tracking-[0.2em] text-[var(--vx-dim)]">{live ? '● Live · full song' : 'Idle'}</span>
               </div>
               <SpectrumBars bars={72} className="mt-5 h-32 w-full" />
               <button type="button" onClick={() => void preview(selected)} disabled={!beatHasAudio(selected) || (!!busy && busy !== `preview:${selected.id}`)} className={`vx-btn mt-5 min-h-14 px-8 text-sm ${live ? 'vx-btn-ghost' : 'vx-btn-primary'}`}>
                 {busy === `preview:${selected.id}` ? <Loader2 className="h-5 w-5 animate-spin" /> : live ? <Pause className="h-5 w-5" /> : <Play className="h-5 w-5" />}
-                {live ? 'Stop preview' : 'Play up to 30 seconds'}
+                {live ? 'Stop preview' : 'Play the full song'}
               </button>
               {!beatHasAudio(selected) && <p className="mt-4 text-sm text-[var(--vx-dim)]">The real audio file has not been added to this slot yet.</p>}
             </section>
