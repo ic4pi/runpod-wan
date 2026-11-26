@@ -5,6 +5,7 @@ import { RecordSection, RecordHalo } from '@/sections/RecordSection';
 import { StemsSection } from '@/sections/StemsSection';
 import { TakesSection } from '@/sections/TakesSection';
 import { Toaster } from '@/components/ui/sonner';
+import { EntitlementProvider, ProNote, useEntitlement } from '@/lib/entitlement';
 
 const TABS: { id: Tab; label: string; icon: typeof Mic }[] = [
   { id: 'record', label: 'Booth', icon: Mic },
@@ -50,6 +51,7 @@ function TabNav({ className }: { className?: string }) {
 
 function Shell() {
   const { tab, setTab, templateId } = useSession();
+  const { pro } = useEntitlement();
   const template = getTemplate(templateId);
 
   return (
@@ -93,7 +95,7 @@ function Shell() {
             <TabNav className="sticky top-0 z-10 -mx-5 hidden bg-background/90 px-5 py-4 backdrop-blur-sm lg:block" />
             <div className="pt-6 lg:pt-8">
               {tab === 'record' && <RecordSection />}
-              {tab === 'stems' && <StemsSection />}
+              {tab === 'stems' && (pro ? <StemsSection /> : <ProNote>Mixdown with extra tracks and stems is part of Bakery Pro. The free version records one vocal over one beat on the Booth tab.</ProNote>)}
               {tab === 'takes' && <TakesSection />}
             </div>
           </div>
@@ -147,8 +149,10 @@ function Shell() {
 
 export default function App() {
   return (
-    <SessionProvider>
-      <Shell />
-    </SessionProvider>
+    <EntitlementProvider>
+      <SessionProvider>
+        <Shell />
+      </SessionProvider>
+    </EntitlementProvider>
   );
 }

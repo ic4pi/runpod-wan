@@ -3,7 +3,7 @@
  * promise: turn rough recordings into music people want to listen to.
  *   Pastry  finishes the song (mix and master)       -> biggest contribution
  *   Beet    makes the backing track from scratch     -> next
- *   Bakery polishes the vocal before it is mixed    -> smallest of the three
+ *   Bakery Pro upgrades the free vocal recorder     -> smallest of the three
  * Diced is not built yet, so it cannot be bought.
  */
 export type ModuleId = 'pastry' | 'beet' | 'bakery' | 'diced';
@@ -29,8 +29,8 @@ export const MODULES: ModuleInfo[] = [
     priceCents: 499, status: 'live',
   },
   {
-    id: 'bakery', name: 'Bakery', tagline: 'Polish the vocal',
-    why: 'Vocal effects, layered takes and templates that lift the recording before it is mixed.',
+    id: 'bakery', name: 'Bakery Pro', tagline: 'Pro vocals',
+    why: 'Free Bakery records one vocal over your beat. Pro adds every style of vocal template, doubles, ad-libs and backups, vocal effects, Levels and more tracks.',
     priceCents: 399, status: 'live',
   },
   {
@@ -40,7 +40,8 @@ export const MODULES: ModuleInfo[] = [
   },
 ];
 
-export const PAID_PATHS: ModuleId[] = ['pastry', 'beet', 'bakery'];
+/** Folders behind the paywall. Bakery is open to everyone: its free version is gated in the app, and Pro unlocks the rest. */
+export const PAID_PATHS: ModuleId[] = ['pastry', 'beet'];
 
 export const getModule = (id: unknown): ModuleInfo | undefined => MODULES.find((m) => m.id === id);
 export const isBuyable = (m: ModuleInfo | undefined): m is ModuleInfo & { priceCents: number } =>

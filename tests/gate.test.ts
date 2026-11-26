@@ -72,7 +72,13 @@ describe('paywall decision', () => {
 
   it('refuses a user who owns nothing', async () => {
     const f = fakeFetch(supa.user(), supa.owned());
-    expect(await decide(req('/bakery/', 'pa=tok'), deps(f.fn))).toEqual({ allow: false, redirect: '/account/?need=bakery' });
+    expect(await decide(req('/pastry/', 'pa=tok'), deps(f.fn))).toEqual({ allow: false, redirect: '/account/?need=pastry' });
+  });
+
+  it('keeps Bakery open to everyone: the free version is limited inside the app', async () => {
+    const f = fakeFetch();
+    expect(await decide(req('/bakery/', ''), deps(f.fn))).toEqual({ allow: true, setCookies: [] });
+    expect(f.calls.length).toBe(0);
   });
 
   it('tries one refresh for an expired sign-in, then stops (no loop)', async () => {

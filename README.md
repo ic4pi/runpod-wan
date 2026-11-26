@@ -5,12 +5,12 @@ Grocery is a modular music platform built with React, TypeScript, Vite, and Web 
 ## Product lanes
 
 - **Grocery** — real-audio beat store. Preview recordings, buy a non-exclusive lease, and download the beat with its license.
-- **Bakery** — vocal recording, layered takes, effects, and vocal exports.
+- **Bakery** — vocal recording. Free: upload one beat, record one vocal over it with the default template, save the song. Bakery Pro ($3.99): every vocal template, doubles, ad-libs and backups, effects, Levels, extra tracks and the Pastry handoff.
 - **Pastry** — mixing and mastering.
 - **Beet** — existing synth/drum module retained in the repository. Its addition is delayed, not deleted.
 - **Diced** — planned sampler/loop module; not for sale.
 
-Grocery does not duplicate Bakery' recorder and does not use synthesized or procedurally generated fallback audio as store inventory.
+Grocery does not duplicate Bakery's recorder and does not use synthesized or procedurally generated fallback audio as store inventory.
 
 ## Grocery buyer flow
 
@@ -70,7 +70,7 @@ The root build assembles all four Vite apps plus Account into `dist/` for one Ve
 | Address | App |
 |---|---|
 | `/` | Grocery beat store |
-| `/bakery/` | Bakery vocal recording |
+| `/bakery/` | Bakery vocal recording (open to everyone; Pro features unlock with the Bakery Pro purchase) |
 | `/pastry/` | Pastry mixing and mastering |
 | `/beet/` | Retained Beet module |
 | `/account/` | Sign in and module purchases |
