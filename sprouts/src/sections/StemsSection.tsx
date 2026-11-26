@@ -115,7 +115,7 @@ export function StemsSection() {
         <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
           Drop your exported stems — vocals, beat, bass. Levels levels, EQs and glues them through the{' '}
           <span className="text-foreground">{template.name}</span> template, then masters to a streaming-ready WAV.
-          Export stems from other production apps, mix in Bakery.
+          Export stems from other production apps, mix in Sprouts.
         </p>
       </div>
 

@@ -52,22 +52,22 @@ export default function App() {
     void (async () => {
       try {
         const handoff = await consumePastryHandoff(id);
-        if (!handoff) throw new Error('The Bakery session expired or was already opened.');
+        if (!handoff) throw new Error('The Sprouts session expired or was already opened.');
         const file = new File([handoff.blob], handoff.filename, { type: 'application/zip' });
         const { stems: imported, skipped, session } = await importFiles([file]);
         if (imported.length === 0) throw new Error(skipped.join(', ') || 'No audio stems were found.');
         if (imported.length > MAX_STEMS) throw new Error(`This session has ${imported.length} stems; Pastry accepts ${MAX_STEMS}.`);
         setStems(imported);
         setMaster(null);
-        setSessionName(session?.name ?? 'Bakery session');
+        setSessionName(session?.name ?? 'Sprouts session');
         if (session?.templateId && TEMPLATES.some((item) => item.id === session.templateId)) {
           setTemplateId(session.templateId);
         }
         if (session?.levels) setLevels(session.levels);
         window.history.replaceState({}, '', window.location.pathname);
-        toast.success(`${imported.length} stems received from Bakery. Ready to mix.`);
+        toast.success(`${imported.length} stems received from Sprouts. Ready to mix.`);
       } catch (error) {
-        toast.error(`${error instanceof Error ? error.message : 'Could not open the Bakery session.'} Use Session ZIP in Bakery if this happens again.`);
+        toast.error(`${error instanceof Error ? error.message : 'Could not open the Sprouts session.'} Use Session ZIP in Sprouts if this happens again.`);
       } finally {
         setHandoffLoading(false);
       }
@@ -82,7 +82,7 @@ export default function App() {
     if (skipped.length) toast.error(`Skipped: ${skipped.join(', ')}`);
     if (added.length) { stale(); setStems((s) => [...s, ...added.slice(0, Math.max(0, room))]); }
     if (session) {
-      setSessionName(session.name ?? 'Bakery session');
+      setSessionName(session.name ?? 'Sprouts session');
       if (session.templateId && TEMPLATES.some((item) => item.id === session.templateId)) setTemplateId(session.templateId);
       if (session.levels) setLevels(session.levels);
     }
@@ -118,7 +118,7 @@ export default function App() {
   const filename = `pastry-${template.id}-master.wav`;
 
   // SMK-25 knobs + transport (see lib/smk.ts). Bank A knobs 1–4 are the
-  // Fine-tune Levels — same language as Bakery. REC re-runs Mix & Master.
+  // Fine-tune Levels — same language as Sprouts. REC re-runs Mix & Master.
   const smk = useSmk((a) => {
     if (a.type === 'play') { if (!playing) void togglePlay(); }
     else if (a.type === 'stop') stop();
@@ -195,18 +195,18 @@ export default function App() {
           <p className="mb-3 font-mono text-[11px] uppercase tracking-[0.25em] text-muted-foreground">2 · Stems</p>
           {handoffLoading && (
             <p role="status" className="mb-3 flex items-center gap-2 border border-border p-3 text-sm text-muted-foreground">
-              <Loader2 className="h-4 w-4 animate-spin" /> Receiving your Bakery session…
+              <Loader2 className="h-4 w-4 animate-spin" /> Receiving your Sprouts session…
             </p>
           )}
           {sessionName && (
             <div role="status" className="mb-3 border border-primary/50 bg-primary/5 p-3">
-              <p className="text-sm font-medium">Bakery session loaded</p>
+              <p className="text-sm font-medium">Sprouts session loaded</p>
               <p className="mt-1 text-xs text-muted-foreground">{sessionName} · {stems.length} independent stems and vocal layers</p>
             </div>
           )}
           <label className="flex min-h-28 cursor-pointer flex-col items-center justify-center gap-2 border border-dashed border-border px-6 py-8 text-center hover:border-foreground/40">
             <Upload className="h-5 w-5 text-muted-foreground" />
-            <span className="text-sm text-muted-foreground">Tap to choose files, or a Bakery session .zip</span>
+            <span className="text-sm text-muted-foreground">Tap to choose files, or a Sprouts session .zip</span>
             <span className="font-mono text-[10px] uppercase tracking-[0.15em] text-muted-foreground/60">WAV · MP3 · M4A · OGG · FLAC · up to {MAX_STEMS} stems</span>
             <input type="file" multiple accept="audio/*,.zip,application/zip" className="sr-only"
               onChange={(e) => { void addFiles(e.target.files); e.target.value = ''; }} />

@@ -16,18 +16,18 @@
       "permanent": true
     },
     {
-      "source": "/bakery",
-      "destination": "/bakery/",
-      "permanent": true
-    },
-    {
       "source": "/sprouts",
-      "destination": "/bakery/",
+      "destination": "/sprouts/",
       "permanent": true
     },
     {
-      "source": "/sprouts/:path*",
-      "destination": "/bakery/",
+      "source": "/bakery",
+      "destination": "/sprouts/",
+      "permanent": true
+    },
+    {
+      "source": "/bakery/:path*",
+      "destination": "/sprouts/",
       "permanent": true
     }
   ],

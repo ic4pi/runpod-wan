@@ -5,12 +5,12 @@ Grocery is a modular music platform built with React, TypeScript, Vite, and Web 
 ## Product lanes
 
 - **Grocery** — real-audio beat store. Preview recordings, buy a non-exclusive lease, and download the beat with its license.
-- **Bakery** — vocal recording. Free: upload one beat, record one vocal over it with the default template, save the song. Bakery Pro ($3.99): every vocal template, doubles, ad-libs and backups, effects, Levels, extra tracks and the Pastry handoff.
+- **Sprouts** — vocal recording. Free: upload one beat, record one vocal over it with the default template, save the song. Sprouts Pro ($3.99): every vocal template, doubles, ad-libs and backups, effects, Levels, extra tracks and the Pastry handoff.
 - **Pastry** — mixing and mastering.
 - **Beet** — existing synth/drum module retained in the repository. Its addition is delayed, not deleted.
 - **Diced** — planned sampler/loop module; not for sale.
 
-Grocery does not duplicate Bakery's recorder and does not use synthesized or procedurally generated fallback audio as store inventory.
+Grocery does not duplicate Sprouts's recorder and does not use synthesized or procedurally generated fallback audio as store inventory.
 
 ## Grocery buyer flow
 
@@ -20,7 +20,7 @@ Grocery does not duplicate Bakery's recorder and does not use synthesized or pro
 4. Pay through server-created Stripe Checkout.
 5. A signature-verified Stripe webhook grants the lease in Supabase.
 6. Download the original audio, `LICENSE.txt`, `purchase.json`, and `READ-ME.txt` as a ZIP.
-7. Record vocals in Bakery and finish the song in Pastry.
+7. Record vocals in Sprouts and finish the song in Pastry.
 
 Every slot currently requires a real `audioUrl` before it becomes available. Empty slots say **Coming soon** and cannot be previewed or sold.
 
@@ -42,7 +42,7 @@ The current implementation uses the same public URL for preview and licensed dow
 
 ```text
 grocery/       Beat store at /
-bakery/       Vocal recording at /bakery/
+sprouts/       Vocal recording at /sprouts/
 pastry/        Mixing and mastering at /pastry/
 beet/          Retained module at /beet/; addition delayed
 account/       Account and module checkout at /account/
@@ -70,7 +70,7 @@ The root build assembles all four Vite apps plus Account into `dist/` for one Ve
 | Address | App |
 |---|---|
 | `/` | Grocery beat store |
-| `/bakery/` | Bakery vocal recording (open to everyone; Pro features unlock with the Bakery Pro purchase) |
+| `/sprouts/` | Sprouts vocal recording (open to everyone; Pro features unlock with the Sprouts Pro purchase) |
 | `/pastry/` | Pastry mixing and mastering |
 | `/beet/` | Retained Beet module |
 | `/account/` | Sign in and module purchases |
@@ -90,7 +90,7 @@ Never paste secrets into chat or commit them. Purchases are granted only by the 
 
 ## Integration
 
-See `GROCERY_INTEGRATION.md` for the current handoff between the beat store, Bakery, and Pastry.
+See `GROCERY_INTEGRATION.md` for the current handoff between the beat store, Sprouts, and Pastry.
 
 ## Before real beat sales
 

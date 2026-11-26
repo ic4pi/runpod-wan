@@ -1,6 +1,6 @@
 /**
  * Grocery suite — interop contract.
- * Bakery (recording) hands sessions off to the Grocery hub, Beet (beats),
+ * Sprouts (recording) hands sessions off to the Grocery hub, Beet (beats),
  * and Processed/Preserves (mix/master) using one metadata shape + a strict
  * WAV spec. Everything here is plain JSON + PCM — no proprietary glue, so
  * any future Grocery app or compatible partner can read it.
@@ -26,7 +26,7 @@ export interface GroceryTrack {
 
 export interface GrocerySession {
   suite: 'grocery';
-  app: 'bakery';
+  app: 'sprouts';
   version: 1;
   sessionName: string;
   bpm: number;
@@ -96,7 +96,7 @@ export function buildGrocerySession(opts: {
 
   return {
     suite: 'grocery',
-    app: 'bakery',
+    app: 'sprouts',
     version: 1,
     sessionName,
     bpm,

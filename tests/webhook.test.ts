@@ -69,7 +69,7 @@ describe('Stripe webhook', () => {
   });
 
   it('handles each module at its own price', async () => {
-    for (const [module, amount] of [['beet', 499], ['bakery', 399]] as const) {
+    for (const [module, amount] of [['beet', 499], ['sprouts', 399]] as const) {
       const f = ok();
       await call(event({ amount_total: amount }, { module }), f);
       expect(JSON.parse(String(grants(f)[0].init?.body)).module).toBe(module);

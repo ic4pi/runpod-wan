@@ -1,5 +1,5 @@
 /**
- * Bakery FX — classic vocal effects, rendered as a post-chain insert.
+ * Sprouts FX — classic vocal effects, rendered as a post-chain insert.
  * Each is a small DSP preset (EQ + filter + optional modulation), no AI.
  * Applied per-layer on top of the template chain, so a user can put a
  * telephone ad-lib under a clean lead.

@@ -1,8 +1,8 @@
 # Accounts, beat leases, and paywall: setup
 
-One deployment serves Grocery at `/`, Bakery at `/bakery/`, Pastry at `/pastry/`, the retained Beet module at `/beet/`, and Account at `/account/`.
+One deployment serves Grocery at `/`, Sprouts at `/sprouts/`, Pastry at `/pastry/`, the retained Beet module at `/beet/`, and Account at `/account/`.
 
-Grocery is the real-audio beat store. Bakery handles vocal recording. Pastry handles mixing and mastering. Beet's addition is delayed; its code remains in the repository.
+Grocery is the real-audio beat store. Sprouts handles vocal recording. Pastry handles mixing and mastering. Beet's addition is delayed; its code remains in the repository.
 
 Paid module routes are locked by `middleware.ts`: before any file is served, the visitor must be signed in and own that module. Anything unclear—missing settings, Supabase down, or a bad cookie—means locked. Purchases are granted only by the signature-verified Stripe webhook (`api/stripe-webhook.ts`), never by the browser.
 
@@ -23,7 +23,8 @@ The equivalent individual migrations are:
 1. `supabase/migrations/20261111000000_produce_entitlements.sql`
 2. `supabase/migrations/20261112000000_rename_bakery_to_pastry.sql`
 3. `supabase/migrations/20261119000000_rename_sprouts_to_bakery.sql`
-4. `supabase/migrations/20261113000000_beat_licenses.sql`
+4. `supabase/migrations/20261126000000_back_to_sprouts.sql`
+5. `supabase/migrations/20261113000000_beat_licenses.sql`
 
 Supabase logins are shared across the whole project, so Grocery customers are also users of `autobuild`.
 

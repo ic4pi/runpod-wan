@@ -234,7 +234,7 @@ export default function App() {
           </button>
           <SpectrumBars bars={20} mirror={false} energy={0.85} className="hidden h-7 w-36 opacity-80 md:block" />
           <nav aria-label="Products" className="flex items-center gap-1 sm:gap-2">
-            <a href="/bakery/" className="hidden min-h-11 items-center rounded-full px-4 font-mono text-[11px] uppercase tracking-[0.2em] text-[var(--vx-dim)] transition hover:bg-white/5 hover:text-white sm:flex">Bakery</a>
+            <a href="/sprouts/" className="hidden min-h-11 items-center rounded-full px-4 font-mono text-[11px] uppercase tracking-[0.2em] text-[var(--vx-dim)] transition hover:bg-white/5 hover:text-white sm:flex">Sprouts</a>
             <a href="/pastry/" className="hidden min-h-11 items-center rounded-full px-4 font-mono text-[11px] uppercase tracking-[0.2em] text-[var(--vx-dim)] transition hover:bg-white/5 hover:text-white sm:flex">Pastry</a>
             {account.available && !account.loading && (account.email
               ? <button type="button" onClick={signOut} className="vx-btn vx-btn-ghost min-h-10 px-5 text-xs">Sign out</button>
@@ -291,7 +291,7 @@ export default function App() {
               <button type="button" onClick={() => void purchaseAction()} disabled={!beatHasAudio(selected) || !!busy} className="vx-btn vx-btn-primary min-h-16 px-5 text-sm">
                 {busy === 'checkout' || busy === 'download' ? <Loader2 className="h-5 w-5 animate-spin" /> : license ? <Download className="h-5 w-5" /> : null}{actionLabel()}
               </button>
-              <a href="/bakery/" className="vx-btn vx-btn-ghost min-h-16 px-5 text-sm">Record vocals in Bakery <ArrowRight className="h-5 w-5" /></a>
+              <a href="/sprouts/" className="vx-btn vx-btn-ghost min-h-16 px-5 text-sm">Record vocals in Sprouts <ArrowRight className="h-5 w-5" /></a>
             </section>
           </div>
 
