@@ -5,7 +5,7 @@ Grocery is a modular music platform built with React, TypeScript, Vite, and Web 
 ## Product lanes
 
 - **Grocery** — real-audio beat store. Preview recordings, buy a non-exclusive lease, and download the beat with its license.
-- **Sprouts** — vocal recording. Free: upload one beat, record one vocal over it with the default template, save the song. Sprouts Pro ($3.99): every vocal template, doubles, ad-libs and backups, effects, Levels, extra tracks and the Pastry handoff.
+- **Sprouts** — vocal recording. Free: upload one beat, record one vocal over it with the default template, save the song. Sprouts Pro ($3.99): every vocal template, doubles, ad-libs and backups, effects, Levels, the 4-track mixer (vocal records on track 1) and the Pastry handoff.
 - **Pastry** — mixing and mastering.
 - **Beet** — existing synth/drum module retained in the repository. Its addition is delayed, not deleted.
 - **Diced** — planned sampler/loop module; not for sale.
