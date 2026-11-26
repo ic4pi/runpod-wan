@@ -2,14 +2,14 @@ import { AudioLines, Layers, Mic } from 'lucide-react';
 import { SessionProvider, useSession, type Tab } from '@/lib/session';
 import { getTemplate } from '@/lib/templates';
 import { RecordSection, RecordHalo } from '@/sections/RecordSection';
-import { StemsSection } from '@/sections/StemsSection';
+import { MixerSection } from '@/sections/MixerSection';
 import { TakesSection } from '@/sections/TakesSection';
 import { Toaster } from '@/components/ui/sonner';
 import { EntitlementProvider, ProNote, useEntitlement } from '@/lib/entitlement';
 
 const TABS: { id: Tab; label: string; icon: typeof Mic }[] = [
   { id: 'record', label: 'Booth', icon: Mic },
-  { id: 'stems', label: 'Mixdown', icon: Layers },
+  { id: 'stems', label: 'Mixer', icon: Layers },
   { id: 'takes', label: 'Vault', icon: AudioLines },
 ];
 
@@ -95,7 +95,7 @@ function Shell() {
             <TabNav className="sticky top-0 z-10 -mx-5 hidden bg-background/90 px-5 py-4 backdrop-blur-sm lg:block" />
             <div className="pt-6 lg:pt-8">
               {tab === 'record' && <RecordSection />}
-              {tab === 'stems' && (pro ? <StemsSection /> : <ProNote>Mixdown with extra tracks and stems is part of Sprouts Pro. The free version records one vocal over one beat on the Booth tab.</ProNote>)}
+              {tab === 'stems' && (pro ? <MixerSection /> : <ProNote>The 4-track mixer, with your vocal on track 1 and a beat, bass or stems on tracks 2–4, is part of Sprouts Pro. The free version records one vocal over one beat on the Booth tab.</ProNote>)}
               {tab === 'takes' && <TakesSection />}
             </div>
           </div>
