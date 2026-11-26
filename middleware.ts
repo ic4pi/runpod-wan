@@ -2,8 +2,8 @@ import { next } from '@vercel/edge';
 import { defaultDeps } from './lib/env';
 import { decide } from './lib/gate';
 
-/** The paywall. Runs before any file under /pastry, /beet or /bakery is served. */
-export const config = { matcher: ['/pastry/:path*', '/beet/:path*', '/bakery/:path*'] };
+/** The paywall. Runs before any file under /pastry or /beet is served. */
+export const config = { matcher: ['/pastry/:path*', '/beet/:path*'] };
 
 export default async function middleware(request: Request): Promise<Response> {
   const result = await decide({ url: request.url, cookie: request.headers.get('cookie') }, defaultDeps());

@@ -12,7 +12,8 @@ import { consumeGroceryHandoff } from '@/lib/audio/groceryHandoff';
 import { FX_LIST } from '@/lib/audio/fx';
 import { audioBufferToWav, formatBytes, formatDuration } from '@/lib/audio/wav';
 import { useSession } from '@/lib/session';
-import { getTemplate, guessRole, TEMPLATES, type Levels } from '@/lib/templates';
+import { DEFAULT_TEMPLATE_ID, getTemplate, guessRole, TEMPLATES, type Levels } from '@/lib/templates';
+import { ProNote, useEntitlement } from '@/lib/entitlement';
 import { smk } from '@/lib/audio/midi';
 import { ControllerPanel } from '@/components/ControllerPanel';
 import { HaloVisualizer } from '@/components/HaloVisualizer';
@@ -118,7 +119,8 @@ async function renderSong(
 
 export function RecordSection() {
   const { templateId, setTemplateId, levels, setLevels, persistStack, playingKey, playBlob, stopPlayback, stacks } = useSession();
-  const template = getTemplate(templateId);
+  const { pro } = useEntitlement();
+  const template = getTemplate(pro ? templateId : DEFAULT_TEMPLATE_ID);
 
   const [phase, setPhase] = useState<Phase>('idle');
   const [monitor, setMonitor] = useState(true);
@@ -188,7 +190,7 @@ export function RecordSection() {
     else if (a.type === 'stop') stopPlayback();
     else if (a.type === 'play-mix') void playSongRef.current();
     else if (a.type === 'pad-layer') handlePad(a.pad);
-    else if (a.type === 'role-next') setNextRecordRole((r) => (r === 'adlib' ? 'backup' : 'adlib'));
+    else if (a.type === 'role-next' && pro) setNextRecordRole((r) => (r === 'adlib' ? 'backup' : 'adlib'));
     else if (a.type === 'fader') {
       // SMK knob Bank A 1-4 → Warmth/Brightness/Punch/Space, mapped 0..2
       // (the SMK-25 has no faders — these knobs ARE the faders)
@@ -223,6 +225,10 @@ export function RecordSection() {
       file.type.startsWith('audio/') || /\.(wav|mp3|m4a|aac|ogg|opus|flac|webm)$/i.test(file.name));
     if (audioFiles.length === 0) {
       toast.error('That doesn\'t look like audio — WAV, MP3, M4A all work.');
+      return;
+    }
+    if (!pro && audioFiles.length > 1) {
+      toast.error('Free Bakery takes one beat file. Bakery Pro takes up to 8 stems.');
       return;
     }
     if (audioFiles.length > 8) {
@@ -267,7 +273,7 @@ export function RecordSection() {
     } catch {
       toast.error('Could not decode one of those audio files.');
     }
-  }, [setBeatState]);
+  }, [setBeatState, pro]);
 
   // Store beats and the user's own uploads arrive once through same-origin
   // IndexedDB. Uploads need no lease; unleased store beats retain their tags.
@@ -355,7 +361,7 @@ export function RecordSection() {
       // Backing = beat + current vocal stack, so the singer layers in time.
       // Headphones → private blend. Speaker mode → quiet from the speaker,
       // bleed cancelled from the take afterwards.
-      const current = layersRef.current.filter((l) => !l.muted);
+      const current = pro ? layersRef.current.filter((l) => !l.muted) : [];
       let backingBuf: AudioBuffer | null = null;
       if (beatRef.current && current.some((l) => l.mixBlob)) {
         // beat + stack: quick render of both together for monitoring
@@ -389,7 +395,7 @@ export function RecordSection() {
       setMicError(msg);
       toast.error(msg);
     }
-  }, [template, monitor, levels, stopPlayback]);
+  }, [template, monitor, levels, stopPlayback, pro]);
 
   const stopRecording = useCallback(async () => {
     if (timerRef.current) window.clearInterval(timerRef.current);
@@ -416,7 +422,7 @@ export function RecordSection() {
       }
       engine.clearBackingRef();
 
-      const role = nextRole(layersRef.current, nextRecordRole);
+      const role = pro ? nextRole(layersRef.current, nextRecordRole) : 'lead';
       const layer: Layer = {
         id: crypto.randomUUID(),
         role,
@@ -428,10 +434,11 @@ export function RecordSection() {
         mixBlob: null,
       };
 
-      let next = [...layersRef.current, layer];
+      // Free: a new take replaces the one vocal. Pro: layers stack.
+      let next = pro ? [...layersRef.current, layer] : [layer];
 
-      // Auto doubles from the lead
-      if (role === 'lead') {
+      // Auto doubles from the lead (Pro only)
+      if (pro && role === 'lead') {
         setPhase('mixing');
         try {
           const decoded = await decodeBlob(blob);
@@ -466,7 +473,7 @@ export function RecordSection() {
       if (mixBlob) {
         toast.success(
           role === 'lead'
-            ? 'Lead stacked with doubles — that\'s the sound.'
+            ? (pro ? 'Lead stacked with doubles — that\'s the sound.' : 'Vocal recorded over your beat.')
             : role === 'backup'
               ? 'Backup in — sitting behind the lead.'
               : 'Ad-lib layered in — tucked behind the lead.',
@@ -478,7 +485,7 @@ export function RecordSection() {
       setPhase('idle');
       toast.error('Recording stopped unexpectedly.');
     }
-  }, [template, levels, rerenderAll, syncLayers, nextRecordRole]);
+  }, [template, levels, rerenderAll, syncLayers, nextRecordRole, pro]);
 
   // Re-render when template or levels change with layers present
   const remixTimer = useRef<number | null>(null);
@@ -676,6 +683,8 @@ export function RecordSection() {
     }
   }, [template, templateId, persistStack, syncLayers, setBeatState]);
 
+  useEffect(() => { if (!pro && templateId !== DEFAULT_TEMPLATE_ID) setTemplateId(DEFAULT_TEMPLATE_ID); }, [pro, templateId, setTemplateId]);
+
   const hasBeat = beat !== null;
   const outBlob = hasBeat ? songBlob : (layers.find((l) => !l.muted)?.mixBlob ?? null);
   const stackDuration = layers.length > 0 ? Math.max(...layers.map((l) => l.duration)) : 0;
@@ -687,11 +696,13 @@ export function RecordSection() {
         <p className="font-mono text-[11px] uppercase tracking-[0.25em] text-muted-foreground">Sound template</p>
         <div className="mt-3 flex gap-2 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           {TEMPLATES.map((t) => {
-            const active = t.id === templateId;
+            const active = t.id === (pro ? templateId : DEFAULT_TEMPLATE_ID);
             return (
               <button
                 key={t.id}
-                onClick={() => setTemplateId(t.id)}
+                onClick={() => { if (pro || t.id === DEFAULT_TEMPLATE_ID) setTemplateId(t.id); }}
+                disabled={!pro && t.id !== DEFAULT_TEMPLATE_ID}
+                aria-disabled={!pro && t.id !== DEFAULT_TEMPLATE_ID}
                 className={`group min-h-11 shrink-0 border px-4 py-2 text-left transition-colors duration-200 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary ${
                   active
                     ? 'border-primary bg-primary/10 text-foreground'
@@ -700,13 +711,14 @@ export function RecordSection() {
               >
                 <span className="block font-mono text-xs uppercase tracking-[0.15em]">{t.name}</span>
                 <span className={`mt-0.5 block font-mono text-[10px] tracking-[0.1em] ${active ? 'text-primary' : 'text-muted-foreground/60'}`}>
-                  {t.short}
+                  {!pro && t.id !== DEFAULT_TEMPLATE_ID ? 'Pro' : t.short}
                 </span>
               </button>
             );
           })}
         </div>
         <p className="mt-2 text-sm text-muted-foreground">{template.blurb}</p>
+        {!pro && <div className="mt-3"><ProNote>Free includes the {template.name} sound. Pro adds every template for different styles.</ProNote></div>}
       </div>
 
       {/* Beat or individual backing stems */}
@@ -718,7 +730,7 @@ export function RecordSection() {
             className="mt-3 flex w-full min-h-20 items-center justify-center gap-3 border border-dashed border-border px-6 py-5 text-center transition-colors duration-200 hover:border-foreground/40 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
           >
             <Music2 className="h-5 w-5 text-muted-foreground" />
-            <span className="text-sm text-muted-foreground">Choose a beat or up to 8 stems — then record over them</span>
+            <span className="text-sm text-muted-foreground">{pro ? 'Choose a beat or up to 8 stems — then record over them' : 'Choose your beat — then record over it'}</span>
           </button>
         ) : (
           <>
@@ -778,10 +790,10 @@ export function RecordSection() {
         />
       </div>
 
-      <LevelsPanel />
+      {pro ? <LevelsPanel /> : <ProNote>Levels (warmth, brightness, punch, space) are part of Pro.</ProNote>}
 
       {/* SMK controller */}
-      <ControllerPanel onPad={handlePad} />
+      {pro && <ControllerPanel onPad={handlePad} />}
 
       {/* Record control */}
       <div className="flex flex-col items-center gap-5">
@@ -819,7 +831,7 @@ export function RecordSection() {
                 : hasBeat ? 'Tap to record over the beat' : 'Tap to record'}
         </p>
 
-        {layers.length > 0 && phase !== 'recording' && (
+        {pro && layers.length > 0 && phase !== 'recording' && (
           <div className="flex items-center gap-2">
             <span className="font-mono text-[10px] uppercase tracking-[0.15em] text-muted-foreground/60">Next up</span>
             <div className="flex border border-border">
@@ -872,7 +884,7 @@ export function RecordSection() {
               {layers.length} layer{layers.length > 1 ? 's' : ''}
             </span>
             <span className="font-mono text-[10px] uppercase tracking-[0.15em] text-muted-foreground/50">
-              doubles auto-made · panned by role
+              {pro ? 'doubles auto-made · panned by role' : 'one vocal · record again to replace'}
             </span>
           </div>
           <ul className="divide-y divide-border">
@@ -915,8 +927,8 @@ export function RecordSection() {
                       </button>
                     </div>
                   </div>
-                  {/* FX insert */}
-                  <div className="mt-2 flex items-center gap-2 pl-14">
+                  {/* FX insert (Pro) */}
+                  {pro && <div className="mt-2 flex items-center gap-2 pl-14">
                     <Sparkles className="h-3 w-3 shrink-0 text-muted-foreground/50" />
                     <div className="flex flex-1 gap-1 overflow-x-auto [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
                       {FX_LIST.map((f) => {
@@ -938,10 +950,10 @@ export function RecordSection() {
                         );
                       })}
                     </div>
-                  </div>
+                  </div>}
 
                   {/* Pan trim */}
-                  <div className="mt-2 flex items-center gap-3 pl-14">
+                  {pro && <div className="mt-2 flex items-center gap-3 pl-14">
                     <span className="font-mono text-[9px] uppercase tracking-[0.15em] text-muted-foreground/60">L</span>
                     <input
                       type="range"
@@ -962,7 +974,7 @@ export function RecordSection() {
                         auto
                       </button>
                     )}
-                  </div>
+                  </div>}
                 </li>
               );
             })}
@@ -989,7 +1001,7 @@ export function RecordSection() {
               </div>
               <Layers2 className="h-4 w-4 shrink-0 text-primary/70" />
             </div>
-            {hasBeat && (
+            {hasBeat && pro && (
               <div className="flex flex-wrap items-center gap-3 border-t border-border px-4 py-3">
                 <span className="font-mono text-[10px] uppercase tracking-[0.15em] text-muted-foreground/60">BPM</span>
                 <input
