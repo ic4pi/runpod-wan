@@ -10,6 +10,8 @@ export interface Env {
 
 export interface Deps {
   env: Env;
+  /** Overrides FREE_FOR_TESTING (tests set false to exercise the real paywall). */
+  open?: boolean;
   fetch: typeof fetch;
   now: () => number; // ms
 }

@@ -75,6 +75,14 @@ describe('paywall decision', () => {
     expect(await decide(req('/pastry/', 'pa=tok'), deps(f.fn))).toEqual({ allow: false, redirect: '/account/?need=pastry' });
   });
 
+  it('testing switch: with everything open, Pastry and Beet need no sign-in', async () => {
+    const f = fakeFetch();
+    for (const path of ['/pastry/', '/beet/']) {
+      expect(await decide(req(path, ''), { ...deps(f.fn), open: true })).toEqual({ allow: true, setCookies: [] });
+    }
+    expect(f.calls.length).toBe(0);
+  });
+
   it('keeps Sprouts open to everyone: the free version is limited inside the app', async () => {
     const f = fakeFetch();
     expect(await decide(req('/sprouts/', ''), deps(f.fn))).toEqual({ allow: true, setCookies: [] });

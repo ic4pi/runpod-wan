@@ -1,7 +1,7 @@
 import type { Deps } from './env';
 import { authConfigured } from './env';
 import { COOKIE_ACCESS, COOKIE_ENT, COOKIE_REFRESH, parseCookies, setCookie } from './cookies';
-import { moduleForPath } from './modules';
+import { FREE_FOR_TESTING, moduleForPath } from './modules';
 import { readEntitlements, signEntitlements } from './session';
 import { getUser, listOwned } from './supabase';
 
@@ -19,6 +19,7 @@ export async function decide(req: { url: string; cookie: string | null }, d: Dep
   const url = new URL(req.url);
   const mod = moduleForPath(url.pathname);
   if (!mod) return { allow: true, setCookies: [] };
+  if (d.open ?? FREE_FOR_TESTING) return { allow: true, setCookies: [] };
 
   if (!authConfigured(d.env)) return { allow: false, redirect: '/account/?error=config' };
 

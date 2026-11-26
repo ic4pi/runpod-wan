@@ -35,7 +35,7 @@ export const supa = {
 };
 
 export function deps(f: typeof fetch, over: Partial<Deps['env']> = {}, now = 1_700_000_000_000): Deps {
-  return { env: { ...ENV, ...over }, fetch: f, now: () => now };
+  return { env: { ...ENV, ...over }, fetch: f, now: () => now, open: false };
 }
 
 export function setEnv(over: Record<string, string | undefined> = {}) {

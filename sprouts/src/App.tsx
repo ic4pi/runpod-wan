@@ -51,7 +51,7 @@ function TabNav({ className }: { className?: string }) {
 
 function Shell() {
   const { tab, setTab, templateId } = useSession();
-  const { pro } = useEntitlement();
+  const { pro, testing } = useEntitlement();
   const template = getTemplate(templateId);
 
   return (
@@ -93,6 +93,7 @@ function Shell() {
         <main className="pb-28 lg:pb-12">
           <div className="mx-auto w-full max-w-2xl px-5 lg:px-10">
             <TabNav className="sticky top-0 z-10 -mx-5 hidden bg-background/90 px-5 py-4 backdrop-blur-sm lg:block" />
+            {testing && <p role="status" className="mt-4 border border-primary/40 bg-primary/5 px-4 py-2 font-mono text-[10px] uppercase tracking-[0.15em] text-primary">Testing — everything is free right now.</p>}
             <div className="pt-6 lg:pt-8">
               {tab === 'record' && <RecordSection />}
               {tab === 'stems' && (pro ? <MixerSection /> : <ProNote>The 4-track mixer, with your vocal on track 1 and a beat, bass or stems on tracks 2–4, is part of Sprouts Pro. The free version records one vocal over one beat on the Booth tab.</ProNote>)}

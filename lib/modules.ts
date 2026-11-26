@@ -52,3 +52,10 @@ export function moduleForPath(pathname: string): ModuleId | null {
   const first = pathname.split('/')[1]?.toLowerCase();
   return (PAID_PATHS as string[]).includes(first) ? (first as ModuleId) : null;
 }
+
+/**
+ * TESTING SWITCH. While true, every module is open to everyone: Pastry and Beet
+ * are not behind the paywall and Sprouts shows all its Pro features. Set it to
+ * false to turn the free / paid split back on. Nothing else needs to change.
+ */
+export const FREE_FOR_TESTING = true;
