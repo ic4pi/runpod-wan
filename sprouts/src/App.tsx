@@ -16,7 +16,7 @@ const TABS: { id: Tab; label: string; icon: typeof Mic }[] = [
 function Wordmark() {
   return (
     <h1 className="font-display text-xl font-medium tracking-tight text-foreground">
-      BAKERY
+      SPROUTS
       <span className="text-primary">.</span>
       <span className="ml-2 align-middle font-mono text-[9px] uppercase tracking-[0.25em] text-muted-foreground/60">Grocery</span>
     </h1>
@@ -95,7 +95,7 @@ function Shell() {
             <TabNav className="sticky top-0 z-10 -mx-5 hidden bg-background/90 px-5 py-4 backdrop-blur-sm lg:block" />
             <div className="pt-6 lg:pt-8">
               {tab === 'record' && <RecordSection />}
-              {tab === 'stems' && (pro ? <StemsSection /> : <ProNote>Mixdown with extra tracks and stems is part of Bakery Pro. The free version records one vocal over one beat on the Booth tab.</ProNote>)}
+              {tab === 'stems' && (pro ? <StemsSection /> : <ProNote>Mixdown with extra tracks and stems is part of Sprouts Pro. The free version records one vocal over one beat on the Booth tab.</ProNote>)}
               {tab === 'takes' && <TakesSection />}
             </div>
           </div>

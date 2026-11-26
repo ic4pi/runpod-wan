@@ -1,4 +1,4 @@
-/** Receives one short-lived Bakery session ZIP from same-origin storage. */
+/** Receives one short-lived Sprouts session ZIP from same-origin storage. */
 const DB_NAME = 'produce-suite-handoffs';
 const STORE = 'pastry';
 const VERSION = 1;

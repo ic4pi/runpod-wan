@@ -1,5 +1,5 @@
 /**
- * Session bundle export — the Bakery → Pastry handoff.
+ * Session bundle export — the Sprouts → Pastry handoff.
  * One ZIP: every music stem and vocal layer as a strict-spec WAV
  * (44.1kHz / 16-bit / stereo) plus session.json, so Pastry can rebuild
  * the session with exact alignment and independent mix controls.
@@ -89,7 +89,7 @@ export async function exportGroceryBundle(opts: {
 
   zip.file('session.json', grocerySessionJson(session));
   zip.file('README.txt',
-`BAKERY SESSION — Produce suite
+`SPROUTS SESSION — Produce suite
 Session: ${sessionName}
 BPM: ${bpm} · Bars: ${session.barCount}
 Template: ${template.name}

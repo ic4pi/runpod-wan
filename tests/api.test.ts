@@ -15,12 +15,12 @@ const session = { access_token: 'AT', refresh_token: 'RT', expires_in: 3600, use
 beforeEach(() => { setEnv(); vi.unstubAllGlobals(); });
 
 describe('catalog and prices', () => {
-  it('prices follow contribution: Pastry > Beet > Bakery, all inside the README range', () => {
+  it('prices follow contribution: Pastry > Beet > Sprouts, all inside the README range', () => {
     const p = Object.fromEntries(MODULES.map((m) => [m.id, m.priceCents]));
     expect(p.pastry!).toBeGreaterThan(p.beet!);
-    expect(p.beet!).toBeGreaterThan(p.bakery!);
-    for (const id of ['pastry', 'beet', 'bakery']) { expect(p[id]!).toBeGreaterThanOrEqual(399); expect(p[id]!).toBeLessThanOrEqual(599); }
-    expect(p).toMatchObject({ pastry: 599, beet: 499, bakery: 399 });
+    expect(p.beet!).toBeGreaterThan(p.sprouts!);
+    for (const id of ['pastry', 'beet', 'sprouts']) { expect(p[id]!).toBeGreaterThanOrEqual(399); expect(p[id]!).toBeLessThanOrEqual(599); }
+    expect(p).toMatchObject({ pastry: 599, beet: 499, sprouts: 399 });
   });
   it('Diced is listed but cannot be bought', () => {
     const d = MODULES.find((m) => m.id === 'diced')!;

@@ -75,9 +75,9 @@ describe('paywall decision', () => {
     expect(await decide(req('/pastry/', 'pa=tok'), deps(f.fn))).toEqual({ allow: false, redirect: '/account/?need=pastry' });
   });
 
-  it('keeps Bakery open to everyone: the free version is limited inside the app', async () => {
+  it('keeps Sprouts open to everyone: the free version is limited inside the app', async () => {
     const f = fakeFetch();
-    expect(await decide(req('/bakery/', ''), deps(f.fn))).toEqual({ allow: true, setCookies: [] });
+    expect(await decide(req('/sprouts/', ''), deps(f.fn))).toEqual({ allow: true, setCookies: [] });
     expect(f.calls.length).toBe(0);
   });
 

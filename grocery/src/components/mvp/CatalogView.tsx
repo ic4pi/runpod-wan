@@ -27,11 +27,11 @@ export function CatalogView({ beats, previewId, loadingId, onPreview, onOpen }: 
             <span className="vx-chrome vx-glitch" data-text="beats.">beats.</span>
           </h1>
           <p className="mt-7 max-w-xl text-lg font-light leading-relaxed text-[var(--vx-dim)]">
-            Preview real beat recordings. Lease once. Download the beat and a plain-English license. Your vocals happen in Bakery.
+            Preview real beat recordings. Lease once. Download the beat and a plain-English license. Your vocals happen in Sprouts.
           </p>
           <div className="mt-8 flex flex-wrap gap-3">
             <a href="#catalog" className="vx-btn vx-btn-primary min-h-12 px-7 text-sm">Enter the catalog <ArrowRight className="h-4 w-4" /></a>
-            <a href="/bakery/" className="vx-btn vx-btn-ghost min-h-12 px-7 text-sm">Open Bakery</a>
+            <a href="/sprouts/" className="vx-btn vx-btn-ghost min-h-12 px-7 text-sm">Open Sprouts</a>
           </div>
         </div>
 
@@ -103,15 +103,15 @@ export function CatalogView({ beats, previewId, loadingId, onPreview, onOpen }: 
 
         <aside className="vx-glass vx-edge h-fit p-7 lg:sticky lg:top-24">
           <p className="vx-label">One clear path</p>
-          <h2 className="font-display mt-4 text-xl font-bold uppercase leading-snug">Beat here.<br /><span className="vx-chrome">Vocals in Bakery.</span></h2>
+          <h2 className="font-display mt-4 text-xl font-bold uppercase leading-snug">Beat here.<br /><span className="vx-chrome">Vocals in Sprouts.</span></h2>
           <ol className="mt-7 space-y-5 text-sm leading-relaxed text-white/85">
-            {['Preview the actual beat recording.', 'Sign in only when you lease or download.', 'Get the original audio and your license.', 'Record your vocals in Bakery.'].map((step, i) => (
+            {['Preview the actual beat recording.', 'Sign in only when you lease or download.', 'Get the original audio and your license.', 'Record your vocals in Sprouts.'].map((step, i) => (
               <li key={step} className="flex gap-4">
                 <span className="font-mono text-xs text-[var(--vx-magenta)] [text-shadow:0_0_10px_var(--vx-magenta)]">0{i + 1}</span>{step}
               </li>
             ))}
           </ol>
-          <a href="/bakery/" className="vx-btn vx-btn-primary mt-8 min-h-12 w-full px-5 text-sm">Open Bakery <ArrowRight className="h-4 w-4" /></a>
+          <a href="/sprouts/" className="vx-btn vx-btn-primary mt-8 min-h-12 w-full px-5 text-sm">Open Sprouts <ArrowRight className="h-4 w-4" /></a>
           <p className="mt-5 text-xs leading-relaxed text-[var(--vx-dim)]">Empty slots say “Coming soon.” Nothing is generated or sold before a real beat file is added.</p>
         </aside>
       </div>

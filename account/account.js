@@ -3,7 +3,7 @@
   var $ = function (id) { return document.getElementById(id); };
   var params = new URLSearchParams(location.search);
   var mode = 'login';
-  var NAMES = { pastry: 'Pastry', beet: 'Beet', bakery: 'Bakery Pro' };
+  var NAMES = { pastry: 'Pastry', beet: 'Beet', sprouts: 'Sprouts Pro' };
 
   function el(tag, attrs) {
     var n = document.createElement(tag);

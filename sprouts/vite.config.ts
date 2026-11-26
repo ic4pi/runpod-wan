@@ -12,8 +12,8 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['icons/*.png'],
       manifest: {
-        name: 'Bakery — Grocery suite',
-        short_name: 'Bakery',
+        name: 'Sprouts — Grocery suite',
+        short_name: 'Sprouts',
         description: 'A pocket recording studio. Pick a sound, sing, get a mixed master back.',
         theme_color: '#0a0a0f',
         background_color: '#0a0a0f',
